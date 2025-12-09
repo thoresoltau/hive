@@ -1,0 +1,48 @@
+# RAG Configuration for Hive Agent Swarm
+
+embedding:
+  model: "text-embedding-3-small"  # OpenAI embedding model
+  dimensions: 1536                  # Output dimensions
+  batch_size: 100                   # Max texts per API call
+
+chunking:
+  chunk_size: 500          # Target characters per chunk
+  chunk_overlap: 50        # Overlap between chunks
+  min_chunk_size: 100      # Minimum chunk size
+  
+  # File extensions to index
+  extensions:
+    - ".py"
+    - ".js"
+    - ".ts"
+    - ".tsx"
+    - ".jsx"
+    - ".md"
+    - ".yaml"
+    - ".yml"
+    - ".json"
+    - ".toml"
+    - ".sql"
+    - ".html"
+    - ".css"
+    - ".scss"
+
+  # Directories to exclude (in addition to .gitignore)
+  exclude_dirs:
+    - "node_modules"
+    - "venv"
+    - ".venv"
+    - "__pycache__"
+    - ".git"
+    - "dist"
+    - "build"
+    - ".hive"
+
+vectordb:
+  persist_directory: ".hive/vectordb"
+  collection_name: "hive_codebase"
+
+search:
+  default_n_results: 5
+  max_n_results: 20
+  score_threshold: 0.3  # Minimum similarity score (0-1)

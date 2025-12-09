@@ -1,0 +1,14 @@
+project: Hive Agent Swarm
+current_sprint: 1
+
+tickets:
+  - id: HIVE-001
+    file: tickets/HIVE-001.yaml
+    status: backlog
+    priority: high
+
+sprint_backlog:
+  - HIVE-001
+
+velocity:
+  sprint_1: null

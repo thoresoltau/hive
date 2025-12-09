@@ -1,0 +1,47 @@
+# MCP Server Configuration
+# =======================
+# Configure external MCP servers for Hive Agent Swarm.
+# Environment variables can be used with ${VAR_NAME} syntax.
+
+mcp_servers:
+  # Context7 - Documentation for libraries and APIs
+  context7:
+    enabled: true
+    transport: http
+    url: "https://mcp.context7.com/mcp"
+    description: "Aktuelle Dokumentation für Libraries und APIs (React, OpenAI, etc.)"
+    # Optional: API key for higher rate limits
+    # api_key: "${CONTEXT7_API_KEY}"
+    request_timeout: 60
+  
+  # Tavily - Web Search for AI Agents
+  tavily:
+    enabled: true
+    transport: http
+    url: "https://mcp.tavily.com/mcp/?tavilyApiKey=${TAVILY_API_KEY}"
+    description: "Web-Suche für aktuelle Informationen, Best Practices, Stack Overflow, etc."
+    request_timeout: 30
+    
+  # Azure DevOps - Work Items, Repos, Pipelines
+  # azure_devops:
+  #   enabled: false
+  #   transport: http
+  #   url: "${AZURE_MCP_URL}"
+  #   api_key: "${AZURE_PAT}"
+  #   description: "Azure DevOps Work Items und Repos"
+  
+  # GitHub - Issues, PRs, Actions
+  # github:
+  #   enabled: false
+  #   transport: http
+  #   url: "https://api.github.com/mcp"
+  #   api_key: "${GITHUB_TOKEN}"
+  #   description: "GitHub Issues, PRs, Actions"
+  
+  # Jira - Tickets und Sprints
+  # jira:
+  #   enabled: false
+  #   transport: http
+  #   url: "${JIRA_MCP_URL}"
+  #   api_key: "${JIRA_API_TOKEN}"
+  #   description: "Jira Tickets und Sprints"
