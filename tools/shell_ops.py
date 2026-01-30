@@ -1,6 +1,7 @@
 """Shell operation tools for agents."""
 
 import asyncio
+import os
 import shlex
 from typing import Optional
 
@@ -126,10 +127,21 @@ Nicht erlaubt: rm -rf, sudo, etc."""
             work_dir = cwd or "."
         
         try:
-            # Run command
-            process = await asyncio.create_subprocess_shell(
+            # Run command using the user's shell.
+            # We pass the current environment explicitly to ensure PATH/VIRTUAL_ENV are inherited.
+            # We also use -l (login shell) to source shell configs (needed for nvm, etc.)
+            shell_executable = os.getenv("SHELL", "/bin/bash")
+            
+            # Build environment: start with current env, then let shell config override
+            env = os.environ.copy()
+            
+            process = await asyncio.create_subprocess_exec(
+                shell_executable,
+                "-l",
+                "-c",
                 command,
                 cwd=work_dir,
+                env=env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

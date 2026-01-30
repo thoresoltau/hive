@@ -112,7 +112,8 @@ fi
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "openai_api_key: " > "$CONFIG_FILE"
     echo "tavily_api_key: " >> "$CONFIG_FILE"
-    echo "model: gpt-4o" >> "$CONFIG_FILE"
+    echo "model_name: gpt-4o" >> "$CONFIG_FILE"
+    echo "model_name_fast: gpt-4o-mini" >> "$CONFIG_FILE"
     echo -e "${GREEN}✓ Created ~/.hive/config.yaml template${NC}"
     echo -e "${YELLOW}👉 Tip: Add your API keys to ~/.hive/config.yaml for global access.${NC}"
 fi
@@ -131,6 +132,10 @@ fi
 echo ""
 echo "Try the CLI:"
 echo -e "  ${BLUE}hive --help${NC}"
+echo ""
+echo "To make 'hive' available globally (in any new terminal):"
+echo -e "  Run this command once:"
+echo -e "  ${YELLOW}echo 'alias hive=\"$PWD/.venv/bin/hive\"' >> ~/.zshrc && source ~/.zshrc${NC}"
 echo ""
 echo "Initialize a new project:"
 echo -e "  ${BLUE}cd ~/my-project && hive init${NC}"

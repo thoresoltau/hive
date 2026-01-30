@@ -457,6 +457,73 @@ def audit(
 
 @app.command()
 @require_initialized
+def activity(
+    tail: int = typer.Option(50, "-n", "--tail", help="Number of events to show"),
+    agent: Optional[str] = typer.Option(None, "--agent", "-a", help="Filter by agent"),
+    ticket: Optional[str] = typer.Option(None, "--ticket", "-t", help="Filter by ticket"),
+    event_type: Optional[str] = typer.Option(None, "--type", help="Filter by event type"),
+):
+    """Show activity log of all agent and tool operations."""
+    from core.activity_logger import ActivityLogger
+    from datetime import datetime
+    
+    project_path = get_project_path()
+    logger = ActivityLogger(workspace_path=str(project_path))
+    
+    events = logger.get_events(
+        n=tail,
+        event_type=event_type,
+        agent=agent,
+        ticket=ticket,
+    )
+    
+    if not events:
+        console.print("[yellow]Keine Aktivitäten gefunden.[/yellow]")
+        if agent or ticket or event_type:
+            console.print(f"[dim]Filter: agent={agent}, ticket={ticket}, type={event_type}[/dim]")
+        return
+    
+    console.print(f"\n[bold blue]Activity Log[/bold blue] ({len(events)} Events)\n")
+    
+    # Event type icons
+    icons = {
+        "workflow_start": "🚀",
+        "workflow_cycle": "🔄",
+        "agent_start": "🤖",
+        "agent_complete": "✅",
+        "agent_handoff": "🔀",
+        "tool_call": "🔧",
+        "ticket_update": "📝",
+        "llm_call": "🧠",
+    }
+    
+    for event in events:
+        ts = event.get("ts", "")[:19].replace("T", " ")
+        etype = event.get("type", "unknown")
+        icon = icons.get(etype, "•")
+        agent_name = event.get("agent", event.get("from_agent", ""))
+        
+        # Format based on event type
+        if etype == "tool_call":
+            tool = event.get("tool", "?")
+            success = "✓" if event.get("success") else "✗"
+            style = "green" if event.get("success") else "red"
+            console.print(f"[dim]{ts}[/dim] {icon} [{style}]{success}[/{style}] [cyan]{agent_name}[/cyan] → {tool}")
+        elif etype == "agent_handoff":
+            to_agent = event.get("to_agent", "?")
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] → [cyan]{to_agent}[/cyan]")
+        elif etype == "ticket_update":
+            ticket_id = event.get("ticket", "?")
+            field = event.get("field", "?")
+            new_val = event.get("new", "?")
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] {ticket_id}.{field} = {new_val}")
+        else:
+            msg = event.get("action", event.get("message", etype))
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name or 'system'}[/cyan] {msg}")
+
+
+@app.command()
+@require_initialized
 def context():
     """Show project context that will be provided to agents."""
     async def _context():

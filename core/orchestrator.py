@@ -141,7 +141,9 @@ class Orchestrator:
                 "backlog": self.backlog,
                 "message_bus": self.message_bus,
                 "system_prompt": system_prompt,
-                "model": config.get("model", model_name).replace("${MODEL_NAME}", model_name),
+                "model": config.get("model", "${MODEL_NAME}") \
+                    .replace("${MODEL_NAME}", self.global_config.config.model_name) \
+                    .replace("${MODEL_FAST}", self.global_config.config.model_name_fast),
                 "temperature": config.get("temperature", 0.3),
             }
             

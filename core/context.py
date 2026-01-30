@@ -180,6 +180,12 @@ class ProjectConfig:
 - **Tests:** {', '.join(self.test_dirs)}
 - **Docs:** {', '.join(self.doc_dirs)}
 
+### Wichtig: Dateipfade
+Alle Dateipfade sind **relativ zum Workspace-Root** (dem aktuellen Arbeitsverzeichnis).
+Du befindest dich bereits im Projektverzeichnis. Verwende KEINE Projektnamens-Präfixe!
+- ✅ RICHTIG: `src/index.tsx`, `package.json`, `tests/test_app.py`
+- ❌ FALSCH: `{self.name}/src/index.tsx`, `{self.name}/package.json`
+
 ### Wichtige Dateien
 {chr(10).join(f'- {f}' for f in self.important_files) if self.important_files else 'Keine spezifiziert'}
 
