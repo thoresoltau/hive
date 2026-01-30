@@ -11,6 +11,8 @@ from rich.text import Text
 from rich.table import Table
 from rich.logging import RichHandler
 
+from .activity_logger import get_activity_logger
+
 
 class LogLevel(str, Enum):
     DEBUG = "debug"
@@ -39,11 +41,19 @@ logging.getLogger("openai").setLevel(logging.WARNING)
 class HiveLogger:
     """Human-readable logger for Hive operations."""
     
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, workspace_path: Optional[str] = None):
         self.verbose = verbose
         self.indent_level = 0
         self._current_cycle = 0
         self._current_agent = None
+        self._workspace_path = workspace_path
+        self._activity = None  # Lazy init
+    
+    def _get_activity(self):
+        """Lazy-load activity logger."""
+        if self._activity is None:
+            self._activity = get_activity_logger(self._workspace_path)
+        return self._activity
     
     def _timestamp(self) -> str:
         return datetime.now().strftime("%H:%M:%S")
@@ -55,6 +65,7 @@ class HiveLogger:
     
     def workflow_start(self, project: str, agents: list[str], tools_count: int):
         """Log workflow initialization."""
+        self._get_activity().workflow_start(project, agents, tools_count)
         console.print()
         console.print(Panel.fit(
             f"[bold blue]🐝 Hive Agent Swarm[/bold blue]\n"
@@ -111,6 +122,7 @@ class HiveLogger:
     
     def agent_start(self, agent_name: str, ticket_id: Optional[str] = None):
         """Log agent starting work."""
+        self._get_activity().agent_start(agent_name, ticket_id)
         self._current_agent = agent_name
         agent_icons = {
             "scrum_master": "📊",
@@ -135,11 +147,13 @@ class HiveLogger:
     
     def agent_handoff(self, from_agent: str, to_agent: str, reason: str = ""):
         """Log handoff between agents."""
+        self._get_activity().agent_handoff(from_agent, to_agent, reason=reason)
         reason_text = f" [dim]({reason})[/dim]" if reason else ""
         console.print(f"{self._indent()}[blue]↗️ Übergabe an {to_agent}[/blue]{reason_text}")
     
     def agent_complete(self, action: str, success: bool, message: str = ""):
         """Log agent completion."""
+        self._get_activity().agent_complete(self._current_agent or "unknown", action, success, message)
         self.indent_level = 0
         icon = "✅" if success else "⚠️"
         style = "green" if success else "yellow"
@@ -152,6 +166,7 @@ class HiveLogger:
     
     def tool_call(self, tool_name: str, args: dict):
         """Log tool being called."""
+        # Note: actual tool_call logging with success is done in tool_result
         if self.verbose:
             # Format args nicely
             args_str = ", ".join(f"{k}={repr(v)[:30]}" for k, v in list(args.items())[:3])
@@ -161,6 +176,13 @@ class HiveLogger:
     
     def tool_result(self, tool_name: str, success: bool, output_preview: str = ""):
         """Log tool result."""
+        self._get_activity().tool_call(
+            agent=self._current_agent or "unknown",
+            tool=tool_name,
+            args={},  # Args logged separately in tool_call
+            success=success,
+            error=output_preview if not success else None,
+        )
         if self.verbose:
             icon = "✓" if success else "✗"
             style = "green" if success else "red"

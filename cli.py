@@ -70,6 +70,9 @@ def get_config_path() -> Path:
 
 def require_initialized(func):
     """Decorator to ensure Hive is initialized before running command."""
+    import functools
+    
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             get_project_path()
@@ -110,12 +113,12 @@ def get_context_manager() -> "ContextManager":
 
 @app.command()
 def init(
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing config"),
+    force: bool = typer.Option(False, "--force", "-f", help="Bestehende Konfiguration überschreiben"),
 ):
     """
-    Initialize Hive in the current directory.
+    Initialisiert Hive im aktuellen Verzeichnis.
     
-    Creates .hive/ with project configuration.
+    Erstellt .hive/ mit Projektkonfiguration.
     """
     from core.context import ContextManager
     
@@ -171,9 +174,9 @@ def init(
 @app.command()
 @require_initialized
 def run(
-    max_cycles: int = typer.Option(10, help="Maximum number of cycles to run"),
+    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximale Mind-Loop-Zyklen"),
 ):
-    """Run the Hive Agent Swarm on the current project."""
+    """Startet den Agent Swarm (verarbeitet Backlog)."""
     async def _run():
         orchestrator = get_orchestrator()
         await orchestrator.initialize()
@@ -188,8 +191,9 @@ def run(
 @require_initialized
 def process(
     ticket_id: str = typer.Argument(..., help="Ticket ID to process"),
+    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximale Mind-Loop-Zyklen"),
 ):
-    """Process a specific ticket through the workflow."""
+    """Verarbeitet ein einzelnes spezifisches Ticket."""
     async def _process():
         orchestrator = get_orchestrator()
         await orchestrator.initialize()
@@ -204,7 +208,7 @@ def process(
 @app.command("create-ticket")
 @require_initialized
 def create_ticket():
-    """Create a new ticket interactively."""
+    """Erstellt ein neues Ticket interaktiv."""
     from core.models import TicketType, Priority
     
     console.print("\n[bold blue]Neues Ticket erstellen[/bold blue]\n")
@@ -261,7 +265,7 @@ description: |
 @app.command()
 @require_initialized
 def status():
-    """Show current backlog status."""
+    """Zeigt den Status des Backlogs an."""
     tickets_dir = get_tickets_dir()
     
     if not tickets_dir.exists():
@@ -305,8 +309,8 @@ def status():
 
 @app.command()
 @require_initialized
-def show(ticket_id: str = typer.Argument(..., help="Ticket ID to show")):
-    """Show detailed ticket information."""
+def show(ticket_id: str = typer.Argument(..., help="Ticket-ID anzeigen")):
+    """Zeigt detaillierte Ticket-Informationen an."""
     import yaml
     
     ticket_file = get_tickets_dir() / f"{ticket_id}.yaml"
@@ -330,9 +334,9 @@ def show(ticket_id: str = typer.Argument(..., help="Ticket ID to show")):
 @require_initialized
 def index(
     full: bool = typer.Option(False, "--full", "-f", help="Force full re-index"),
-    status_only: bool = typer.Option(False, "--status", "-s", help="Show index status only"),
+    status_only: bool = typer.Option(False, "--status", "-s", help="Zeige nur den Index-Status"),
 ):
-    """Index codebase for semantic search (RAG)."""
+    """Indexiert die Codebase für semantische Suche (RAG)."""
     from tools.rag import CodebaseIndexer, EmbeddingService, VectorDB
     
     project_path = get_project_path()
@@ -386,10 +390,10 @@ def index(
 @app.command()
 @require_initialized
 def search(
-    query: str = typer.Argument(..., help="Search query"),
-    n_results: int = typer.Option(5, "-n", help="Number of results"),
+    query: str = typer.Argument(..., help="Suchanfrage"),
+    n_results: int = typer.Option(5, "-n", help="Anzahl der Ergebnisse"),
 ):
-    """Search indexed codebase semantically."""
+    """Durchsucht die Codebase semantisch."""
     from tools.rag import RAGSearchTool
     
     project_path = get_project_path()
@@ -410,10 +414,10 @@ def search(
 @app.command()
 @require_initialized
 def audit(
-    tail: int = typer.Option(20, "-n", "--tail", help="Number of entries to show"),
-    all_entries: bool = typer.Option(False, "--all", "-a", help="Show all entries"),
+    tail: int = typer.Option(20, "-n", "--tail", help="Anzahl der Einträge"),
+    all_entries: bool = typer.Option(False, "--all", "-a", help="Zeige alle Einträge"),
 ):
-    """Show audit log of file operations."""
+    """Zeigt das Audit-Log der Datei-Operationen."""
     from tools.guardrails import AuditLogger
     
     project_path = get_project_path()
@@ -454,8 +458,75 @@ def audit(
 
 @app.command()
 @require_initialized
+def activity(
+    tail: int = typer.Option(50, "-n", "--tail", help="Anzahl der Events"),
+    agent: Optional[str] = typer.Option(None, "--agent", "-a", help="Filter nach Agent"),
+    ticket: Optional[str] = typer.Option(None, "--ticket", "-t", help="Filter nach Ticket"),
+    event_type: Optional[str] = typer.Option(None, "--type", help="Filter nach Event-Typ"),
+):
+    """Zeigt das Activity-Log aller Agenten- und Tool-Operationen."""
+    from core.activity_logger import ActivityLogger
+    from datetime import datetime
+    
+    project_path = get_project_path()
+    logger = ActivityLogger(workspace_path=str(project_path))
+    
+    events = logger.get_events(
+        n=tail,
+        event_type=event_type,
+        agent=agent,
+        ticket=ticket,
+    )
+    
+    if not events:
+        console.print("[yellow]Keine Aktivitäten gefunden.[/yellow]")
+        if agent or ticket or event_type:
+            console.print(f"[dim]Filter: agent={agent}, ticket={ticket}, type={event_type}[/dim]")
+        return
+    
+    console.print(f"\n[bold blue]Activity Log[/bold blue] ({len(events)} Events)\n")
+    
+    # Event type icons
+    icons = {
+        "workflow_start": "🚀",
+        "workflow_cycle": "🔄",
+        "agent_start": "🤖",
+        "agent_complete": "✅",
+        "agent_handoff": "🔀",
+        "tool_call": "🔧",
+        "ticket_update": "📝",
+        "llm_call": "🧠",
+    }
+    
+    for event in events:
+        ts = event.get("ts", "")[:19].replace("T", " ")
+        etype = event.get("type", "unknown")
+        icon = icons.get(etype, "•")
+        agent_name = event.get("agent", event.get("from_agent", ""))
+        
+        # Format based on event type
+        if etype == "tool_call":
+            tool = event.get("tool", "?")
+            success = "✓" if event.get("success") else "✗"
+            style = "green" if event.get("success") else "red"
+            console.print(f"[dim]{ts}[/dim] {icon} [{style}]{success}[/{style}] [cyan]{agent_name}[/cyan] → {tool}")
+        elif etype == "agent_handoff":
+            to_agent = event.get("to_agent", "?")
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] → [cyan]{to_agent}[/cyan]")
+        elif etype == "ticket_update":
+            ticket_id = event.get("ticket", "?")
+            field = event.get("field", "?")
+            new_val = event.get("new", "?")
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] {ticket_id}.{field} = {new_val}")
+        else:
+            msg = event.get("action", event.get("message", etype))
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name or 'system'}[/cyan] {msg}")
+
+
+@app.command()
+@require_initialized
 def context():
-    """Show project context that will be provided to agents."""
+    """Zeigt den Projektkontext an, der den Agenten bereitgestellt wird."""
     async def _context():
         ctx = get_context_manager()
         full_context = await ctx.get_full_context()

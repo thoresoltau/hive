@@ -22,11 +22,11 @@ class TestBacklogManager:
     def manager(self, backlog_dir):
         return BacklogManager(backlog_dir)
 
-    async def test_initialize_creates_index(self, manager, backlog_dir):
-        """Should create index.yaml on initialize."""
+    async def test_initialize_creates_backlog(self, manager, backlog_dir):
+        """Should create backlog structure on initialize."""
         await manager.initialize()
         
-        assert (backlog_dir / "index.yaml").exists()
+        assert (backlog_dir / "tickets").exists()
 
     async def test_create_ticket(self, manager):
         """Should create a new ticket."""

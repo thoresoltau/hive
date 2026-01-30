@@ -206,6 +206,21 @@ hive index --full
 hive search "authentication logic"
 ```
 
+### 5. Monitoring & Debugging
+
+```bash
+# Activity Log (Agenten-Aktionen & Tool-Calls)
+hive activity
+hive activity --tail 100 --agent backend_dev
+
+# Audit Log (Dateisystem-Operationen)
+hive audit
+hive audit --all
+
+# Projekt-Kontext (was die Agenten sehen)
+hive context
+```
+
 ## 📁 Projektstruktur
 
 ```

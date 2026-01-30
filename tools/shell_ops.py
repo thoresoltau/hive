@@ -1,6 +1,7 @@
 """Shell operation tools for agents."""
 
 import asyncio
+import os
 import shlex
 from typing import Optional
 
@@ -11,12 +12,16 @@ from .base import Tool, ToolResult, ToolParameter, ToolResultStatus
 ALLOWED_COMMANDS = {
     # Python
     "pytest", "python", "pip", "ruff", "black", "mypy", "pylint", "flake8",
-    # Node.js
-    "npm", "npx", "node", "yarn", "pnpm", "eslint", "prettier", "tsc", "jest", "vitest",
+    # Node.js / Bun
+    "npm", "npx", "node", "yarn", "pnpm", "bun", "bunx", "eslint", "prettier", "tsc", "jest", "vitest",
+    # PHP
+    "php", "composer", "artisan", "phpunit", "pest", "phpcs", "php-cs-fixer", "phpstan", "psalm", "rector", "symfony",
     # Build tools
-    "make", "cargo", "go", "gradle", "mvn",
+    "make", "cargo", "go", "gradle", "mvn", "mvnw",
     # Version control (for rollback operations)
     "git",
+    # Containerization
+    "docker", "docker compose", "podman", "kubectl", "minikube", "helm",
     # General utilities
     "cat", "head", "tail", "grep", "find", "ls", "echo", "pwd", "wc",
     "sort", "uniq", "diff", "tree", "which", "env",
@@ -126,10 +131,21 @@ Nicht erlaubt: rm -rf, sudo, etc."""
             work_dir = cwd or "."
         
         try:
-            # Run command
-            process = await asyncio.create_subprocess_shell(
+            # Run command using the user's shell.
+            # We pass the current environment explicitly to ensure PATH/VIRTUAL_ENV are inherited.
+            # We also use -l (login shell) to source shell configs (needed for nvm, etc.)
+            shell_executable = os.getenv("SHELL", "/bin/bash")
+            
+            # Build environment: start with current env, then let shell config override
+            env = os.environ.copy()
+            
+            process = await asyncio.create_subprocess_exec(
+                shell_executable,
+                "-l",
+                "-c",
                 command,
                 cwd=work_dir,
+                env=env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

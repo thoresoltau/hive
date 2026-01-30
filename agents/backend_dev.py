@@ -61,8 +61,11 @@ class BackendDevAgent(BaseAgent):
             if not any(kw in st.description.lower() for kw in ["frontend", "ui", "component", "styling"])
         ]
         
-        # Check if we have tools available for actual implementation
         if self.tools:
+            # Create feature branch before implementation
+            if ticket.implementation.branch:
+                await self._ensure_feature_branch(ticket.implementation.branch)
+            
             # Use tools to actually implement the code
             response, tool_results = await self._call_llm_with_tools(
                 user_message=f"""

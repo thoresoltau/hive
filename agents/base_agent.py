@@ -451,6 +451,44 @@ class BaseAgent(ABC):
             ticket_id=ticket_id,
         )
 
+    async def _ensure_feature_branch(self, branch_name: str) -> bool:
+        """
+        Stelle sicher, dass der Feature-Branch existiert und aktiv ist.
+        
+        Versucht zuerst den Branch zu erstellen. Falls er bereits existiert,
+        wird automatisch zu diesem gewechselt.
+        
+        Args:
+            branch_name: Name des Feature-Branches
+            
+        Returns:
+            True wenn Branch erstellt oder gewechselt wurde, False bei Fehler.
+        """
+        if not self.tools:
+            return False
+        
+        git_branch = self.tools.get("git_branch")
+        if not git_branch:
+            return False
+        
+        # Versuche Branch zu erstellen
+        result = await git_branch.execute(branch_name=branch_name, action="create")
+        
+        if result.success:
+            self.log.info(f"Feature-Branch '{branch_name}' erstellt")
+            return True
+        
+        # Branch existiert bereits → wechseln
+        error_str = str(result.error) if result.error else ""
+        if "bereits existiert" in error_str or "already exists" in error_str:
+            switch_result = await git_branch.execute(branch_name=branch_name, action="switch")
+            if switch_result.success:
+                self.log.info(f"Zu Branch '{branch_name}' gewechselt")
+                return True
+        
+        self.log.warning(f"Branch-Operation fehlgeschlagen: {result.error}")
+        return False
+
     async def _check_git_status(self) -> dict:
         """
         Check git status before critical operations.
