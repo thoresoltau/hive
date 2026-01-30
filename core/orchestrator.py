@@ -42,7 +42,14 @@ class Orchestrator:
         self.codebase_path = Path(codebase_path) if codebase_path else None
         
         # Initialize core components
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        from .global_config import GlobalConfigManager
+        self.global_config = GlobalConfigManager()
+        api_key = self.global_config.get_api_key("openai")
+        
+        if not api_key:
+            self.log.warning("Kein OpenAI API Key gefunden. Bitte in ~/.hive/config.yaml oder als Environment Variable setzen.")
+        
+        self.client = AsyncOpenAI(api_key=api_key)
         self.backlog = BacklogManager(self.backlog_path)
         self.message_bus = MessageBus()
         self.context_manager = ContextManager(self.codebase_path) if self.codebase_path else None
