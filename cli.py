@@ -70,6 +70,9 @@ def get_config_path() -> Path:
 
 def require_initialized(func):
     """Decorator to ensure Hive is initialized before running command."""
+    import functools
+    
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
             get_project_path()
