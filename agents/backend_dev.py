@@ -61,20 +61,10 @@ class BackendDevAgent(BaseAgent):
             if not any(kw in st.description.lower() for kw in ["frontend", "ui", "component", "styling"])
         ]
         
-        # Check if we have tools available for actual implementation
         if self.tools:
             # Create feature branch before implementation
             if ticket.implementation.branch:
-                git_branch = self.tools.get("git_branch")
-                if git_branch:
-                    branch_result = await git_branch.execute(
-                        branch_name=ticket.implementation.branch,
-                        action="create",
-                    )
-                    if branch_result.success:
-                        self.log.info(f"Feature-Branch '{ticket.implementation.branch}' erstellt")
-                    elif "bereits existiert" not in str(branch_result.error):
-                        self.log.warning(f"Branch-Erstellung fehlgeschlagen: {branch_result.error}")
+                await self._ensure_feature_branch(ticket.implementation.branch)
             
             # Use tools to actually implement the code
             response, tool_results = await self._call_llm_with_tools(

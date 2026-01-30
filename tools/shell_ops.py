@@ -12,12 +12,16 @@ from .base import Tool, ToolResult, ToolParameter, ToolResultStatus
 ALLOWED_COMMANDS = {
     # Python
     "pytest", "python", "pip", "ruff", "black", "mypy", "pylint", "flake8",
-    # Node.js
-    "npm", "npx", "node", "yarn", "pnpm", "eslint", "prettier", "tsc", "jest", "vitest",
+    # Node.js / Bun
+    "npm", "npx", "node", "yarn", "pnpm", "bun", "bunx", "eslint", "prettier", "tsc", "jest", "vitest",
+    # PHP
+    "php", "composer", "artisan", "phpunit", "pest", "phpcs", "php-cs-fixer", "phpstan", "psalm", "rector", "symfony",
     # Build tools
-    "make", "cargo", "go", "gradle", "mvn",
+    "make", "cargo", "go", "gradle", "mvn", "mvnw",
     # Version control (for rollback operations)
     "git",
+    # Containerization
+    "docker", "docker compose", "podman", "kubectl", "minikube", "helm",
     # General utilities
     "cat", "head", "tail", "grep", "find", "ls", "echo", "pwd", "wc",
     "sort", "uniq", "diff", "tree", "which", "env",

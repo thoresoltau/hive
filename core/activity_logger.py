@@ -1,10 +1,13 @@
 """Activity logging for tracking all agent and tool operations."""
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any
 from threading import Lock
+
+logger = logging.getLogger(__name__)
 
 
 class ActivityLogger:
@@ -22,17 +25,23 @@ class ActivityLogger:
     _instance: Optional["ActivityLogger"] = None
     _lock = Lock()
     
-    def __new__(cls, workspace_path: Optional[str] = None):
+    def __new__(cls, workspace_path: Optional[str] = None, _reset: bool = False):
         """Singleton pattern to ensure one logger per workspace."""
         with cls._lock:
-            if cls._instance is None or workspace_path:
+            if cls._instance is None or _reset:
                 instance = super().__new__(cls)
                 instance._initialized = False
                 cls._instance = instance
             return cls._instance
     
-    def __init__(self, workspace_path: Optional[str] = None):
-        if self._initialized and not workspace_path:
+    @classmethod
+    def reset(cls) -> None:
+        """Reset singleton instance. Primarily for testing."""
+        with cls._lock:
+            cls._instance = None
+    
+    def __init__(self, workspace_path: Optional[str] = None, _reset: bool = False):
+        if self._initialized and not _reset:
             return
             
         self.workspace_path = Path(workspace_path) if workspace_path else Path.cwd()
@@ -87,8 +96,8 @@ class ActivityLogger:
         try:
             with open(self.log_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
-        except Exception:
-            pass  # Don't crash on logging failures
+        except Exception as e:
+            logger.debug(f"Failed to write activity log: {e}")
     
     # Convenience methods for common event types
     
@@ -277,13 +286,6 @@ class ActivityLogger:
         return events[-n:]
 
 
-# Global instance getter
-_activity_logger: Optional[ActivityLogger] = None
-
-
 def get_activity_logger(workspace_path: Optional[str] = None) -> ActivityLogger:
     """Get or create the activity logger singleton."""
-    global _activity_logger
-    if _activity_logger is None or workspace_path:
-        _activity_logger = ActivityLogger(workspace_path)
-    return _activity_logger
+    return ActivityLogger(workspace_path)
