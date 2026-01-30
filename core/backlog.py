@@ -25,17 +25,17 @@ class BacklogManager:
         """Initialize backlog directory structure."""
         self.tickets_dir.mkdir(parents=True, exist_ok=True)
         
-        if not self.index_file.exists():
-            self._index = {
-                "project": "Hive Agent Swarm",
-                "current_sprint": 1,
-                "tickets": [],
-                "sprint_backlog": [],
-            }
-            await self._save_index()
-        else:
+        # Load index if exists (for sprint metadata), otherwise create default
+        if self.index_file.exists():
             await self._load_index()
-            await self._load_all_tickets()
+        else:
+            self._index = {
+                "project": "Hive Project",
+                "current_sprint": 1,
+            }
+        
+        # Auto-discover all tickets from directory
+        await self._load_all_tickets()
 
     async def _save_index(self) -> None:
         """Save index file."""
@@ -49,13 +49,14 @@ class BacklogManager:
             self._index = yaml.safe_load(content) or {}
 
     async def _load_all_tickets(self) -> None:
-        """Load all tickets from disk."""
-        for ticket_info in self._index.get("tickets", []):
-            ticket_file = self.backlog_path / ticket_info["file"]
-            if ticket_file.exists():
-                ticket = await self.load_ticket_from_file(ticket_file)
-                if ticket:
-                    self._tickets[ticket.id] = ticket
+        """Load all tickets from disk (auto-discovery)."""
+        if not self.tickets_dir.exists():
+            return
+        
+        for ticket_file in self.tickets_dir.glob("*.yaml"):
+            ticket = await self.load_ticket_from_file(ticket_file)
+            if ticket:
+                self._tickets[ticket.id] = ticket
 
     async def load_ticket_from_file(self, file_path: Path) -> Optional[Ticket]:
         """Load a single ticket from file."""
@@ -69,40 +70,21 @@ class BacklogManager:
             return None
 
     async def save_ticket(self, ticket: Ticket) -> None:
-        """Save a ticket to disk and update index."""
+        """Save a ticket to disk."""
         ticket.metadata.updated_at = datetime.utcnow()
+        
+        # Ensure tickets directory exists
+        self.tickets_dir.mkdir(parents=True, exist_ok=True)
         
         # Save ticket file
         ticket_file = self.tickets_dir / f"{ticket.id}.yaml"
         ticket_data = ticket.model_dump(mode="json")
         
-        # Convert datetime objects to strings for YAML
         async with aiofiles.open(ticket_file, "w") as f:
             await f.write(yaml.dump(ticket_data, default_flow_style=False, allow_unicode=True))
         
         # Update in-memory cache
         self._tickets[ticket.id] = ticket
-        
-        # Update index
-        relative_path = f"tickets/{ticket.id}.yaml"
-        ticket_entry = {
-            "id": ticket.id,
-            "file": relative_path,
-            "status": ticket.status.value,
-            "priority": ticket.priority.value,
-        }
-        
-        # Update or add to index
-        existing_idx = next(
-            (i for i, t in enumerate(self._index["tickets"]) if t["id"] == ticket.id),
-            None
-        )
-        if existing_idx is not None:
-            self._index["tickets"][existing_idx] = ticket_entry
-        else:
-            self._index["tickets"].append(ticket_entry)
-        
-        await self._save_index()
 
     async def create_ticket(
         self,

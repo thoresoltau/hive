@@ -44,11 +44,18 @@ class EmbeddingService:
             model: OpenAI embedding model name
             dimensions: Output embedding dimensions
             batch_size: Maximum texts per API call
-            api_key: Optional API key (uses OPENAI_API_KEY env var if not provided)
+        api_key: Optional API key (uses GlobalConfig or OPENAI_API_KEY env var if not provided)
         """
         self.model = model
         self.dimensions = dimensions
         self.batch_size = batch_size
+        
+        # Try to resolve API key: Argument -> GlobalConfig -> Env Var (handled by GlobalConfigManager)
+        if not api_key:
+            from core.global_config import GlobalConfigManager
+            config_manager = GlobalConfigManager()
+            api_key = config_manager.get_api_key("openai")
+            
         self.client = AsyncOpenAI(api_key=api_key)
         
         # Initialize tokenizer for the model

@@ -48,144 +48,162 @@ Ein digitales Scrum-Team, das von KI-Agenten betrieben wird. Die Agenten arbeite
 
 ## 🚀 Installation
 
-### Automatisch (empfohlen)
+### Voraussetzungen
+
+- **Python 3.10 - 3.13** (3.14+ wird noch nicht unterstützt wegen `onnxruntime`)
+- **OpenAI API Key** für Agent-Interaktionen
+- Optional: **Tavily API Key** für Web-Suche
+
+### Schnellstart (macOS mit uv)
 
 ```bash
-# Setup-Script ausführen
+# 1. uv installieren (falls nicht vorhanden)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+alternativ: brew install uv
+
+# 2. Virtual Environment erstellen und aktivieren
+cd /pfad/zu/hive
+uv venv # Wenn schon python 3.14 installiert ist -> uv venv --python 3.12
+source .venv/bin/activate
+# 3. Dependencies installieren
+uv pip install -r requirements.txt
+
+# 4. Environment konfigurieren
+cp .env.example .env
+# Dann OPENAI_API_KEY in .env eintragen
+```
+
+### Automatisch via Script (Linux/macOS)
+
+```bash
+# Setup-Script ausführen (erstellt venv/ Ordner)
 ./scripts/setup.sh
 
 # Virtual Environment aktivieren
 source venv/bin/activate
 ```
 
-### Manuell
+### Manuell (alle Plattformen)
+
+**Schritt 1: Python Virtual Environment erstellen**
 
 ```bash
-# Voraussetzungen (Ubuntu/Debian)
-sudo apt install python3-venv python3-pip
-
-# Virtual Environment erstellen
+# macOS/Linux
 python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# oder: venv\Scripts\activate  # Windows
+source venv/bin/activate
 
-# Dependencies installieren
-pip install -r requirements.txt
-
-# Environment konfigurieren
-cp .env.example .env
-# Dann OPENAI_API_KEY in .env setzen
+# Windows (PowerShell)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
+
+> **Hinweis für Ubuntu/Debian:** Falls `venv` fehlt:
+> ```bash
+> sudo apt install python3-venv python3-pip
+> ```
+
+**Schritt 2: Dependencies installieren**
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**Schritt 3: Environment konfigurieren**
+
+```bash
+cp .env.example .env
+```
+
+Dann `.env` bearbeiten und mindestens setzen:
+- `OPENAI_API_KEY=sk-...` (erforderlich)
+- `TAVILY_API_KEY=tvly-...` (optional, für Web-Suche)
 
 ### Tests ausführen
 
 ```bash
 # Alle Tests
-./scripts/test.sh
+pytest
 
 # Mit Coverage-Report
-./scripts/test.sh --coverage
+pytest --cov=. --cov-report=html
 
 # Spezifische Tests
-./scripts/test.sh tests/test_file_ops.py -v
+pytest tests/test_file_ops.py -v
 ```
 
 ## 📋 Verwendung
 
-### Projekt initialisieren
+Hive ist jetzt ein projektlokales CLI Tool.
+
+### Setup
+
+Der schnellste Weg zum Start (unterstützt macOS/Linux mit `uv` oder `pip`):
 
 ```bash
-# Hive für ein Projekt einrichten
-python main.py init --path /pfad/zum/projekt
-
-# Erstellt:
-# - .hive/project.yaml  (Projektkonfiguration)
-# - docs/adr/           (Architecture Decision Records)
+./scripts/setup.sh
+source .venv/bin/activate  # oder source venv/bin/activate
 ```
 
-### Projektkontext anzeigen
+Das Skript erledigt alles automatisch:
+1. Erstellt Virtual Environment (via `uv` wenn verfügbar)
+2. Installiert Dependencies & `hive` CLI
+3. Erstellt Config-Templates (`.env` und `~/.hive/config.yaml`)
+
+#### Konfiguration
+
+Trage deinen API-Key ein - entweder global (empfohlen) oder projektlokal:
+
+- **Global:** `~/.hive/config.yaml` (gilt für alle Projekte)
+- **Lokal:** `export OPENAI_API_KEY=...`
+
+### 1. In einem Projekt initialisieren
+
+Wechsle in dein Projekt und initialisiere Hive:
 
 ```bash
-# Zeigt den Kontext, den Agenten sehen
-python main.py context --path /pfad/zum/projekt
-
-# Kontext aktualisieren
-python main.py update-context --add-important-file "src/core/api.py"
+cd /pfad/zu/deinem/projekt
+hive init
 ```
 
-### Ticket erstellen
+Dies erstellt ein `.hive/` Verzeichnis mit Konfiguration und Ticket-Datenbank.
+
+### 2. Tickets verwalten
 
 ```bash
-python main.py create-ticket
+# Interaktiv ein neues Ticket erstellen
+hive create-ticket
+
+# Status des Backlogs anzeigen
+hive status
+
+# Ticket-Details anzeigen
+hive show HIVE-001
 ```
 
-Oder manuell eine YAML-Datei in `backlog/tickets/` erstellen:
+Die Tickets werden als YAML-Dateien in `.hive/tickets/` gespeichert.
 
-```yaml
-id: HIVE-001
-type: feature
-title: "Benutzer-Login implementieren"
-priority: high
-status: backlog
-description: |
-  Als Benutzer möchte ich mich einloggen können,
-  damit ich auf geschützte Bereiche zugreifen kann.
-```
-
-### Agent Swarm starten
+### 3. Agent Swarm starten
 
 ```bash
-# Hauptloop starten (verarbeitet alle Tickets)
-python main.py run
+# Alle Tickets im Backlog verarbeiten
+hive run
 
-# Mit Codebase-Analyse und Tool-Zugriff
-python main.py run --codebase /pfad/zum/projekt
+# Limitierte Anzahl an Zyklen
+hive run --max-cycles 5
 
-# Maximale Zyklen begrenzen
-python main.py run --max-cycles 5
+# Nur ein spezifisches Ticket verarbeiten
+hive process HIVE-001
 ```
 
-### Einzelnes Ticket verarbeiten
+### 4. RAG & Suche
 
 ```bash
-python main.py process HIVE-001 --codebase /pfad/zum/projekt
-```
+# Codebase indexieren
+hive index --full
 
-### Status anzeigen
-
-```bash
-# Backlog-Übersicht
-python main.py status
-
-# Ticket-Details
-python main.py show HIVE-001
-```
-
-### RAG - Semantische Codesuche
-
-```bash
-# Codebase indexieren (benötigt OPENAI_API_KEY)
-python main.py index --full
-
-# Index-Status anzeigen
-python main.py index --status
-
-# Semantisch im Code suchen
-python main.py search "wie werden tickets verarbeitet"
-python main.py search "authentication logic" -n 10
-```
-
-### Audit-Log
-
-```bash
-# Letzte File-Operationen anzeigen
-python main.py audit
-
-# Mehr Einträge
-python main.py audit -n 50
-
-# Alle Einträge
-python main.py audit --all
+# Semantische Suche
+hive search "authentication logic"
 ```
 
 ## 📁 Projektstruktur
