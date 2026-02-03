@@ -30,6 +30,7 @@ class MessageBus:
 
     def __init__(self, history_limit: int = 100):
         self._subscriptions: dict[str, MessageSubscription] = {}
+        self._monitors: list[Callable[[AgentMessage], Any]] = []  # Global monitors
         self._message_queue: asyncio.Queue[AgentMessage] = asyncio.Queue()
         self._history: list[AgentMessage] = []
         self._history_limit = history_limit
@@ -50,10 +51,26 @@ class MessageBus:
         )
         self._handlers[agent_name] = callback
 
+    def subscribe_to_all(self, callback: Callable[[AgentMessage], Any]) -> None:
+        """Subscribe to monitor ALL messages passing through the bus."""
+        self._monitors.append(callback)
+
     def unsubscribe(self, agent_name: str) -> None:
         """Unsubscribe an agent from messages."""
         self._subscriptions.pop(agent_name, None)
         self._handlers.pop(agent_name, None)
+
+    async def _notify_monitors(self, message: AgentMessage) -> None:
+        """Notify all global monitors (fire-and-forget)."""
+        for callback in self._monitors:
+            try:
+                # Run monitor callbacks concurrently/independently so they don't block
+                if asyncio.iscoroutinefunction(callback):
+                    asyncio.create_task(callback(message))
+                else:
+                    callback(message)
+            except Exception as e:
+                print(f"Monitor error: {e}")
 
     async def publish(self, message: AgentMessage) -> None:
         """Publish a message to the bus."""
@@ -62,6 +79,9 @@ class MessageBus:
         if len(self._history) > self._history_limit:
             self._history = self._history[-self._history_limit:]
         
+        # Notify monitors
+        await self._notify_monitors(message)
+
         # Queue for processing
         await self._message_queue.put(message)
 
@@ -86,6 +106,9 @@ class MessageBus:
         
         # Add to history
         self._history.append(message)
+        
+        # Notify monitors
+        await self._notify_monitors(message)
         
         # Direct delivery if handler exists
         if to_agent in self._handlers:
@@ -114,6 +137,12 @@ class MessageBus:
                     ticket_id=ticket_id,
                     content=content,
                 )
+                # Monitors will be notified when message is processed via queue? 
+                # No, broadcast just queues individual messages. 
+                # Ideally we monitor the intent "broadcast" or each individual message.
+                # Let's notify for each generated message to be consistent.
+                
+                await self._notify_monitors(message)
                 await self._message_queue.put(message)
 
     def get_history(

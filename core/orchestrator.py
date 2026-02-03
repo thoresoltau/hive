@@ -97,7 +97,10 @@ class Orchestrator:
             ProductOwnerAgent,
             ArchitectAgent,
             FrontendDevAgent,
+            ArchitectAgent,
+            FrontendDevAgent,
             BackendDevAgent,
+            ObserverAgent,
         )
         
         agent_classes = {
@@ -106,6 +109,7 @@ class Orchestrator:
             "architect": ArchitectAgent,
             "frontend_dev": FrontendDevAgent,
             "backend_dev": BackendDevAgent,
+            "observer": ObserverAgent,
         }
         
         agent_configs = self._config.get("agents", {})
@@ -156,6 +160,10 @@ class Orchestrator:
                 kwargs["codebase_path"] = str(self.codebase_path)
             
             self.agents[agent_key] = agent_class(**kwargs)
+            
+            # Explicitly initialize observer to start monitoring
+            if agent_key == "observer":
+                await self.agents[agent_key].initialize()
 
     async def run_single_cycle(self) -> Optional[AgentResponse]:
         """Run a single workflow cycle."""
