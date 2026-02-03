@@ -45,14 +45,15 @@ class BaseAgent(ABC):
         self.client = client
         self.backlog = backlog
         self.message_bus = message_bus
-        self.system_prompt = system_prompt
         self.model = model
         self.temperature = temperature
         self.tools = tools
         self.log = get_logger()
         
-        # STABILITY PROTOCOL
-        self.system_prompt += """
+        # PROMPT COMPONENTS
+        self._role_prompt = system_prompt
+        self._project_context = ""
+        self._stability_protocol = """
 
 ## STABILITY PROTOCOL
 1. If a tool fails with "CRITICAL_FAILURE", DO NOT RETRY. Report the error immediately.
@@ -62,6 +63,23 @@ class BaseAgent(ABC):
         
         # Register with message bus
         self.message_bus.subscribe(self.name, self.handle_message)
+
+    @property
+    def system_prompt(self) -> str:
+        """Dynamically assemble system prompt."""
+        parts = [self._role_prompt]
+        
+        if self._project_context:
+            parts.append(f"\n\n## Projektkontext\n{self._project_context}")
+            
+        parts.append(self._stability_protocol)
+        
+        return "".join(parts)
+        
+    def update_context(self, context: str) -> None:
+        """Update the project context."""
+        self._project_context = context
+        self.log.debug(f"Agent '{self.name}' context updated ({len(context)} chars).")
 
     async def handle_message(self, message: AgentMessage) -> Optional[AgentResponse]:
         """Handle incoming message from message bus."""

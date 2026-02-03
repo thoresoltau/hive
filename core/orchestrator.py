@@ -134,10 +134,8 @@ class Orchestrator:
         for agent_key, agent_class in agent_classes.items():
             config = agent_configs.get(agent_key, {})
             
-            # Append project context to system prompt if available
+            # System prompt from config (Role only)
             system_prompt = config.get("system_prompt", "")
-            if self._project_context:
-                system_prompt += f"\n\n## Projektkontext\n{self._project_context}"
             
             kwargs = {
                 "name": agent_key,
@@ -160,6 +158,10 @@ class Orchestrator:
                 kwargs["codebase_path"] = str(self.codebase_path)
             
             self.agents[agent_key] = agent_class(**kwargs)
+            
+            # Inject initial project context
+            if self._project_context:
+                self.agents[agent_key].update_context(self._project_context)
             
             # Explicitly initialize observer to start monitoring
             if agent_key == "observer":
@@ -250,6 +252,25 @@ class Orchestrator:
             hop_count += 1
         
         return current_response
+
+    async def refresh_context(self) -> None:
+        """Refresh project context and push to all agents."""
+        if not self.context_manager:
+            return
+            
+        self.log.info("Refreshing project context...")
+        # Reload context
+        await self.context_manager.load()
+        self._project_context = await self.context_manager.get_full_context()
+        
+        # Push to all agents
+        count = 0
+        for agent in self.agents.values():
+            if hasattr(agent, "update_context"):
+                agent.update_context(self._project_context)
+                count += 1
+        
+        self.log.info(f"Context updated for {count} agents.")
 
     async def run(self, max_cycles: int = 10) -> None:
         """Run the main orchestration loop."""
