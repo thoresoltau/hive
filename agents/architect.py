@@ -513,7 +513,7 @@ Chosen option: "{decision}"
             write_tool = self.tools.get("write_file")
             if write_tool:
                 await write_tool.execute(
-                    file_path=str(file_path),
+                    path=str(file_path),
                     content=template,
                     overwrite=False
                 )
