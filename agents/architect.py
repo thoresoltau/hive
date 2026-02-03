@@ -136,12 +136,26 @@ class ArchitectAgent(BaseAgent):
         
         # Add comment
         risks = analysis.get("risks", [])
-        arch_notes = analysis.get("architectural_notes", "")
         comment = f"Technische Analyse abgeschlossen. Komplexität: {analysis.get('complexity')}."
         if risks:
             comment += f" Risiken: {', '.join(risks)}."
-        if arch_notes:
+            
+        # ADR Trigger Logik
+        arch_notes = analysis.get("architectural_notes", "")
+        if arch_notes and len(arch_notes) > 20: # Nur bei substantiellen Notes
+            # Erstelle Draft
+            adr_file = await self._propose_adr(
+                title=ticket.title,
+                context=f"Ticket {ticket.id}: {ticket.title}\n\n{ticket.description}\n\nArchitecture Notes: {arch_notes}",
+                decision="Proposed: " + arch_notes.split(".")[0], # Erste Satz als Kurzform
+                consequences="TBD",
+                ticket_id=ticket.id
+            )
+            comment += f"\n\n🛑 **ADR Proposed**: `{adr_file}`. Bitte um Review!"
+            
+        elif arch_notes:
             comment += f" {arch_notes}"
+            
         ticket.add_comment(self.name, comment)
         
         # Update status to planned
@@ -414,3 +428,83 @@ class ArchitectAgent(BaseAgent):
             return await self._estimate_ticket(message.ticket_id)
         else:
             return await self._analyze_and_plan(message.ticket_id, message.content)
+
+    async def _propose_adr(
+        self,
+        title: str,
+        context: str,
+        decision: str,
+        consequences: str,
+        ticket_id: str,
+    ) -> str:
+        """Create a new ADR proposal."""
+        import datetime
+        
+        # Check for existing ADRs to determine ID
+        adr_dir = Path("docs/adr")
+        if self.codebase_path:
+            adr_dir = self.codebase_path / "docs/adr"
+            
+        if not adr_dir.exists():
+            adr_dir.mkdir(parents=True, exist_ok=True)
+            
+        existing = list(adr_dir.glob("[0-9][0-9][0-9]*"))
+        next_id = len(existing) + 1
+        
+        slug = title.lower().replace(" ", "-")[:50]
+        filename = f"{next_id:03d}-{slug}.md"
+        file_path = adr_dir / filename
+        
+        # Determine deciders (team)
+        deciders = ["Architect", "Product Owner", "Backend Dev", "Frontend Dev"]
+        
+        template = f"""# {next_id}. {title}
+
+Status: Proposed
+Date: {datetime.date.today()}
+Deciders: {', '.join(deciders)}
+Ticket: {ticket_id}
+
+## Context and Problem Statement
+
+{context}
+
+## Decision Drivers
+
+* Technical feasibility
+* Maintainability
+* Performance requirements
+
+## Considered Options
+
+* Option 1: [Proposed Solution]
+* Option 2: [Status Quo / Alternatives]
+
+## Decision Outcome
+
+Chosen option: "{decision}"
+
+### Positive Consequences
+
+* Solves the immediate problem in {ticket_id}
+
+### Negative Consequences
+
+* {consequences}
+"""
+        
+        # Write file directly if tools not available (fallback), else use write_file tool
+        if self.tools:
+            write_tool = self.tools.get("write_file")
+            if write_tool:
+                await write_tool.execute(
+                    file_path=str(file_path),
+                    content=template,
+                    overwrite=False
+                )
+            else:
+                file_path.write_text(template)
+        else:
+            file_path.write_text(template)
+            
+        return str(filename)
