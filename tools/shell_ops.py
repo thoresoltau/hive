@@ -24,7 +24,7 @@ ALLOWED_COMMANDS = {
     "docker", "docker compose", "podman", "kubectl", "minikube", "helm",
     # General utilities
     "cat", "head", "tail", "grep", "find", "ls", "echo", "pwd", "wc",
-    "sort", "uniq", "diff", "tree", "which", "env",
+    "sort", "uniq", "diff", "tree", "which", "env", "sleep", "python3",
 }
 
 # Blacklist of dangerous commands/patterns
@@ -137,7 +137,17 @@ Nicht erlaubt: rm -rf, sudo, etc."""
             shell_executable = os.getenv("SHELL", "/bin/bash")
             
             # Build environment: start with current env, then let shell config override
+            # Force non-interactive environment variables
+            NON_INTERACTIVE_ENV = {
+                "CI": "true",
+                "DEBIAN_FRONTEND": "noninteractive",
+                "NPM_CONFIG_YES": "true",       # Auto-confirm npm
+                "PIP_NO_INPUT": "1",            # Disable pip prompts
+                "PYTHONUNBUFFERED": "1",        # Immediate output
+            }
+            
             env = os.environ.copy()
+            env.update(NON_INTERACTIVE_ENV)
             
             process = await asyncio.create_subprocess_exec(
                 shell_executable,
@@ -148,6 +158,7 @@ Nicht erlaubt: rm -rf, sudo, etc."""
                 env=env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,  # Prevent interactive prompts (immediate EOF)
             )
             
             try:

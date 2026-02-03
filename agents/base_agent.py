@@ -51,6 +51,15 @@ class BaseAgent(ABC):
         self.tools = tools
         self.log = get_logger()
         
+        # STABILITY PROTOCOL
+        self.system_prompt += """
+
+## STABILITY PROTOCOL
+1. If a tool fails with "CRITICAL_FAILURE", DO NOT RETRY. Report the error immediately.
+2. If you are stuck in a loop, STOP and ask for help.
+3. Do not invent success. specific tools must return success=True.
+"""
+        
         # Register with message bus
         self.message_bus.subscribe(self.name, self.handle_message)
 
@@ -310,7 +319,7 @@ class BaseAgent(ABC):
                                 result = ToolResult(
                                     status=ToolResultStatus.ERROR,
                                     output=None,
-                                    error=f"Nach {max_retries + 1} Versuchen fehlgeschlagen: {last_error}",
+                                    error=f"CRITICAL_FAILURE: Tool '{tool_name}' failed after {max_retries + 1} attempts. Error: {last_error}\nDO NOT RETRY. Report this failure immediately to the user.",
                                 )
                     
                     # Log final result if failed after retries

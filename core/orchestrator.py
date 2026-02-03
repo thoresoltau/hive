@@ -179,6 +179,7 @@ class Orchestrator:
         current_response = response
         max_hops = 10  # Prevent infinite loops
         hop_count = 0
+        handoff_history = []  # Track (from, to) pairs to detect ping-pong loops
         
         while current_response.next_agent and hop_count < max_hops:
             next_agent_name = current_response.next_agent
@@ -188,6 +189,25 @@ class Orchestrator:
                 self.log.warning(f"Agent '{next_agent_name}' nicht gefunden")
                 break
             
+            # LOOP DETECTION
+            # Check for ping-pong loops (A->B, B->A, A->B, ...)
+            handoff_pair = (current_response.agent, next_agent_name)
+            handoff_history.append(handoff_pair)
+            
+            # Count occurrences of this specific handoff
+            pair_count = handoff_history.count(handoff_pair)
+            if pair_count >= 3:
+                self.log.error(f"🛑 Loop Detected: {current_response.agent} -> {next_agent_name} happened {pair_count} times. Breaking execution.")
+                
+                # Create a synthetic response to inform the user about the loop
+                return AgentResponse(
+                    success=False,
+                    agent="orchestrator",
+                    action_taken="loop_detected",
+                    message=f"Abbruch: Unendlicher Loop erkannt zwischen {current_response.agent} und {next_agent_name}.",
+                    ticket_id=current_response.ticket_id
+                )
+
             # Create handoff message
             handoff_message = AgentMessage(
                 from_agent=current_response.agent,
