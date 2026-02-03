@@ -6,6 +6,7 @@ from .product_owner import ProductOwnerAgent
 from .architect import ArchitectAgent
 from .frontend_dev import FrontendDevAgent
 from .backend_dev import BackendDevAgent
+from .observer import ObserverAgent
 
 __all__ = [
     "BaseAgent",
@@ -14,4 +15,5 @@ __all__ = [
     "ArchitectAgent",
     "FrontendDevAgent",
     "BackendDevAgent",
+    "ObserverAgent",
 ]
