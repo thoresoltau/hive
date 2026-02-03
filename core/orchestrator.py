@@ -208,6 +208,16 @@ class Orchestrator:
                     ticket_id=current_response.ticket_id
                 )
 
+            
+            # CHECK FOR ADR PROPOSAL
+            if current_response.action_taken == "adr_proposed":
+                self.log.info(f"🏛️ ADR Proposed by {current_response.agent}. Starting Consensus Protocol.")
+                consensus_result = await self._run_adr_consensus(current_response)
+                # If consensus failed/rejected, we might stop or continue.
+                # For now, we log it and continue to the originally planned next agent.
+                if not consensus_result:
+                     self.log.warning("ADR Consensus failed or rejected.")
+            
             # Create handoff message
             handoff_message = AgentMessage(
                 from_agent=current_response.agent,
@@ -357,3 +367,52 @@ class Orchestrator:
             hop_count += 1
         
         return current_response
+
+    async def _run_adr_consensus(self, response: AgentResponse) -> bool:
+        """
+        Run a consensus cycle for a proposed ADR.
+        Currently implements a simplified flow: Architect -> Product Owner (Approval).
+        Future: Broadcast to Tech Leads.
+        """
+        po_agent = self.agents.get("product_owner")
+        if not po_agent:
+            self.log.warning("Consensus skipped: No Product Owner agent found.")
+            return True # Assume implicit approval if no PO? Or fail?
+            
+        print(f"\n🗳️  ADR Consensus: Requesting review from Product Owner...")
+        
+        # Ask PO
+        msg = AgentMessage(
+            from_agent="orchestrator",
+            to_agent="product_owner",
+            message_type=MessageType.QUESTION,
+            ticket_id=response.ticket_id,
+            content=f"""
+            ADR PROPOSAL REVIEW REQUIRED.
+            
+            The Architect has proposed an architectural decision.
+            Please review it for business alignment and feasibility limitations.
+            
+            Proposal Context:
+            {response.message}
+            
+            Do you APPROVE or REJECT this decision?
+            Answer with "APPROVE" or "REJECT" and your reasoning.
+            """,
+            context=response.result # Contains analysis/adr details
+        )
+        
+        reply = await po_agent.handle_message(msg)
+        
+        if not reply:
+            return False
+            
+        is_approved = "approve" in reply.message.lower() or "bestätig" in reply.message.lower()
+        
+        if is_approved:
+            print("✅ ADR Approved by Product Owner.")
+            # TODO: Update ADR status in file to 'Accepted'
+            return True
+        else:
+            print(f"❌ ADR Rejected by Product Owner: {reply.message}")
+            return False
