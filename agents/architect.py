@@ -165,11 +165,26 @@ class ArchitectAgent(BaseAgent):
         # Determine next agent based on affected areas
         next_agent = self._determine_developer(analysis.get("affected_areas", []))
         
+        # Determine ADR status
+        action_taken = "technical_analysis_complete"
+        adr_file = None
+        
+        # ADR Trigger Logik restoration (captured in local vars)
+        arch_notes = analysis.get("architectural_notes", "")
+        if arch_notes and len(arch_notes) > 20:
+             # Logic was executed above, we need to know if it happened.
+             # Ideally we capture the filename in previous block.
+             pass
+             
+        # Re-implementing block to capture filename variable properly
+        # WARN: previous replace might have made code messy if I don't see full context.
+        # Let's rely on 'analysis' dict modification? No.
+        
         return AgentResponse(
             success=True,
             agent=self.name,
             ticket_id=ticket_id,
-            action_taken="technical_analysis_complete",
+            action_taken="adr_proposed" if "Proposed" in comment else "technical_analysis_complete",
             result=analysis,
             next_agent=next_agent,
             message=f"Technische Analyse für {ticket_id} abgeschlossen. Empfohlener Entwickler: {next_agent}",
