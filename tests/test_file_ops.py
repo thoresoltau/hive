@@ -26,7 +26,7 @@ class TestReadFileTool:
     async def test_read_existing_file(self, tool, temp_file):
         """Should read existing file with line numbers."""
         result = await tool.execute(path=temp_file.name)
-        
+
         assert result.success
         assert "Line 1" in result.output
         assert result.metadata["total_lines"] == 3
@@ -34,7 +34,7 @@ class TestReadFileTool:
     async def test_read_nonexistent_file(self, tool):
         """Should return error for non-existent file."""
         result = await tool.execute(path="nonexistent.txt")
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "nicht gefunden" in result.error.lower()
 
@@ -45,7 +45,7 @@ class TestReadFileTool:
             start_line=1,
             end_line=2,
         )
-        
+
         assert result.success
         assert "Line 1" in result.output
         assert "Line 2" in result.output
@@ -64,7 +64,7 @@ class TestWriteFileTool:
             path="new_file.txt",
             content="Hello, World!",
         )
-        
+
         assert result.success
         assert (temp_dir / "new_file.txt").exists()
         assert (temp_dir / "new_file.txt").read_text() == "Hello, World!"
@@ -75,19 +75,29 @@ class TestWriteFileTool:
             path="subdir/nested/file.txt",
             content="Nested content",
         )
-        
+
         assert result.success
         assert (temp_dir / "subdir/nested/file.txt").exists()
 
-    async def test_write_no_overwrite_by_default(self, tool, temp_file):
-        """Should not overwrite existing file by default."""
+    async def test_write_with_explicit_no_overwrite(self, tool, temp_file):
+        """Should not overwrite existing file when explicit."""
+        result = await tool.execute(
+            path=temp_file.name,
+            content="New content",
+            overwrite=False,
+        )
+
+        assert result.status == ToolResultStatus.ERROR
+        assert "existiert" in result.error.lower()
+
+    async def test_write_overwrites_by_default(self, tool, temp_file):
+        """Should overwrite existing file by default."""
         result = await tool.execute(
             path=temp_file.name,
             content="New content",
         )
-        
-        assert result.status == ToolResultStatus.ERROR
-        assert "existiert" in result.error.lower()
+
+        assert result.success
 
     async def test_write_with_overwrite(self, tool, temp_file):
         """Should overwrite when explicitly requested."""
@@ -96,7 +106,7 @@ class TestWriteFileTool:
             content="Overwritten content",
             overwrite=True,
         )
-        
+
         assert result.success
         assert temp_file.read_text() == "Overwritten content"
 
@@ -115,7 +125,7 @@ class TestEditFileTool:
             old_string="Line 2",
             new_string="Modified Line 2",
         )
-        
+
         assert result.success
         content = temp_file.read_text()
         assert "Modified Line 2" in content
@@ -127,7 +137,7 @@ class TestEditFileTool:
             old_string="Nonexistent",
             new_string="New",
         )
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "nicht gefunden" in result.error.lower()
 
@@ -138,7 +148,7 @@ class TestEditFileTool:
             old_string="old",
             new_string="new",
         )
-        
+
         assert result.status == ToolResultStatus.ERROR
 
 
@@ -152,7 +162,7 @@ class TestListDirectoryTool:
     async def test_list_directory(self, tool, temp_file):
         """Should list directory contents."""
         result = await tool.execute(path=".")
-        
+
         assert result.success
         # Output is a formatted string, not a dict
         assert "test_file.txt" in result.output
@@ -162,15 +172,15 @@ class TestListDirectoryTool:
         subdir = temp_dir / "subdir"
         subdir.mkdir()
         (subdir / "subfile.txt").write_text("content")
-        
+
         result = await tool.execute(path=".", recursive=True)
-        
+
         assert result.success
 
     async def test_list_nonexistent_directory(self, tool):
         """Should return error for non-existent directory."""
         result = await tool.execute(path="nonexistent")
-        
+
         assert result.status == ToolResultStatus.ERROR
 
 
@@ -184,21 +194,21 @@ class TestFindFilesTool:
     async def test_find_by_name(self, tool, temp_file):
         """Should find files by name pattern."""
         result = await tool.execute(pattern="*.txt")
-        
+
         assert result.success
         assert "test_file.txt" in result.output
 
     async def test_find_by_content(self, tool, temp_file):
         """Should find files by content."""
         result = await tool.execute(content="Line 2")
-        
+
         assert result.success
         assert result.metadata["matches"] >= 1
 
     async def test_find_no_matches(self, tool, temp_dir):
         """Should return empty/no files message when no matches."""
         result = await tool.execute(pattern="*.nonexistent")
-        
+
         assert result.success
         assert result.metadata["matches"] == 0
 
@@ -215,9 +225,9 @@ class TestDeleteFileTool:
         # Create a file to delete
         file_path = temp_dir / "to_delete.txt"
         file_path.write_text("Delete me")
-        
+
         result = await tool.execute(path="to_delete.txt")
-        
+
         assert result.success
         assert "gelöscht" in result.output
         assert not file_path.exists()
@@ -225,7 +235,7 @@ class TestDeleteFileTool:
     async def test_delete_nonexistent_file(self, tool):
         """Should return error for non-existent file."""
         result = await tool.execute(path="nonexistent.txt")
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "nicht gefunden" in result.error.lower()
 
@@ -234,9 +244,9 @@ class TestDeleteFileTool:
         # Create a subdirectory
         subdir = temp_dir / "subdir"
         subdir.mkdir()
-        
+
         result = await tool.execute(path="subdir")
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "verzeichnis" in result.error.lower()
 
@@ -253,16 +263,16 @@ class TestMoveFileTool:
         # Create source file
         source = temp_dir / "source.txt"
         source.write_text("Move me")
-        
+
         # Create target directory
         target_dir = temp_dir / "target"
         target_dir.mkdir()
-        
+
         result = await tool.execute(
             source="source.txt",
             destination="target/source.txt",
         )
-        
+
         assert result.success
         assert not source.exists()
         assert (temp_dir / "target" / "source.txt").exists()
@@ -272,12 +282,12 @@ class TestMoveFileTool:
         # Create source file
         source = temp_dir / "old_name.txt"
         source.write_text("Rename me")
-        
+
         result = await tool.execute(
             source="old_name.txt",
             destination="new_name.txt",
         )
-        
+
         assert result.success
         assert "umbenannt" in result.output
         assert not source.exists()
@@ -289,7 +299,7 @@ class TestMoveFileTool:
             source="nonexistent.txt",
             destination="dest.txt",
         )
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "nicht gefunden" in result.error.lower()
 
@@ -300,12 +310,12 @@ class TestMoveFileTool:
         source.write_text("Source")
         dest = temp_dir / "dest.txt"
         dest.write_text("Destination")
-        
+
         result = await tool.execute(
             source="source.txt",
             destination="dest.txt",
         )
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "existiert bereits" in result.error
 
@@ -316,13 +326,13 @@ class TestMoveFileTool:
         source.write_text("New content")
         dest = temp_dir / "dest.txt"
         dest.write_text("Old content")
-        
+
         result = await tool.execute(
             source="source.txt",
             destination="dest.txt",
             overwrite=True,
         )
-        
+
         assert result.success
         assert not source.exists()
         assert dest.read_text() == "New content"
@@ -339,16 +349,16 @@ class TestAppendFileTool:
         """Should append content to existing file."""
         file_path = temp_dir / "append_test.txt"
         file_path.write_text("Line 1\n")
-        
+
         result = await tool.execute(path="append_test.txt", content="Line 2")
-        
+
         assert result.success
         assert file_path.read_text() == "Line 1\nLine 2"
 
     async def test_append_creates_file(self, tool, temp_dir):
         """Should create file if it doesn't exist."""
         result = await tool.execute(path="new_file.txt", content="New content")
-        
+
         assert result.success
         assert (temp_dir / "new_file.txt").read_text() == "New content"
 
@@ -356,9 +366,9 @@ class TestAppendFileTool:
         """Should add newline before content if file doesn't end with newline."""
         file_path = temp_dir / "no_newline.txt"
         file_path.write_text("Line 1")  # No trailing newline
-        
+
         result = await tool.execute(path="no_newline.txt", content="Line 2")
-        
+
         assert result.success
         assert file_path.read_text() == "Line 1\nLine 2"
 
@@ -373,7 +383,7 @@ class TestCreateDirectoryTool:
     async def test_create_directory(self, tool, temp_dir):
         """Should create a new directory."""
         result = await tool.execute(path="new_dir")
-        
+
         assert result.success
         assert (temp_dir / "new_dir").is_dir()
         assert result.metadata["created"]
@@ -381,7 +391,7 @@ class TestCreateDirectoryTool:
     async def test_create_nested_directories(self, tool, temp_dir):
         """Should create nested directories."""
         result = await tool.execute(path="parent/child/grandchild")
-        
+
         assert result.success
         assert (temp_dir / "parent" / "child" / "grandchild").is_dir()
 
@@ -389,9 +399,9 @@ class TestCreateDirectoryTool:
         """Should succeed for existing directory."""
         existing = temp_dir / "existing"
         existing.mkdir()
-        
+
         result = await tool.execute(path="existing")
-        
+
         assert result.success
         assert not result.metadata["created"]
 
@@ -399,8 +409,8 @@ class TestCreateDirectoryTool:
         """Should fail if path exists as file."""
         file_path = temp_dir / "is_a_file"
         file_path.write_text("I'm a file")
-        
+
         result = await tool.execute(path="is_a_file")
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "Datei" in result.error

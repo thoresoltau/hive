@@ -9,12 +9,15 @@ from core.models import AgentResponse
 def mock_orchestrator():
     """Create a mocked orchestrator."""
     with patch("core.orchestrator.BacklogManager"), \
-         patch("core.orchestrator.GlobalConfigManager"), \
+         patch("core.global_config.GlobalConfigManager") as mock_gcm, \
          patch("core.orchestrator.AsyncOpenAI", create=True), \
          patch("core.orchestrator.MessageBus"), \
          patch("core.orchestrator.ContextManager"), \
          patch("core.orchestrator.get_logger"):
 
+        mock_gcm.return_value.config.openai_api_key = "dummy_key"
+        mock_gcm.return_value.config.gemini_api_key = "dummy_key"
+        mock_gcm.return_value.config.anthropic_api_key = "dummy_key"
         orch = Orchestrator(backlog_path=".", config_path="config.yaml")
         orch.agents = {}
         return orch

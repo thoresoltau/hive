@@ -38,7 +38,7 @@ class BaseAgent(ABC):
         message_bus: MessageBus,
         system_prompt: str,
         model: str = "gpt-4o",
-        temperature: float = 0.3,
+        temperature: float = 1.0,
         tools: Optional[ToolRegistry] = None,
     ):
         self.name = name

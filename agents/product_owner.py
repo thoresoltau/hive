@@ -23,7 +23,7 @@ class ProductOwnerAgent(BaseAgent):
     async def process_task(self, message: AgentMessage) -> AgentResponse:
         """Process a task assignment."""
         task_type = message.context.get("task_type", "refine")
-        
+
         if task_type == "validate":
             return await self._validate_implementation(message.ticket_id)
         else:
@@ -42,7 +42,7 @@ class ProductOwnerAgent(BaseAgent):
                 action_taken="refinement_failed",
                 message="Keine Ticket-ID angegeben.",
             )
-        
+
         ticket = self.backlog.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
@@ -52,18 +52,18 @@ class ProductOwnerAgent(BaseAgent):
                 action_taken="refinement_failed",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         # Use LLM to generate refinement
         refinement = await self._call_llm_json(
             user_message=f"""
             Verfeinere dieses Ticket als Product Owner.
-            
+
             Erstelle:
             1. Klare, testbare Acceptance Criteria (mindestens 3)
             2. Eine User Story im Format "Als X möchte ich Y, damit Z"
-            
+
             {additional_context}
-            
+
             Antworte mit JSON:
             {{
                 "acceptance_criteria": [
@@ -81,10 +81,10 @@ class ProductOwnerAgent(BaseAgent):
             """,
             ticket=ticket,
         )
-        
+
         # Update ticket
         ticket.acceptance_criteria = refinement.get("acceptance_criteria", [])
-        
+
         if "user_story" in refinement:
             us = refinement["user_story"]
             ticket.user_story = UserStory(
@@ -92,18 +92,18 @@ class ProductOwnerAgent(BaseAgent):
                 i_want=us.get("i_want", ""),
                 so_that=us.get("so_that", ""),
             )
-        
+
         # Add comment
         notes = refinement.get("refinement_notes", "")
         ticket.add_comment(
             self.name,
             f"Refinement abgeschlossen. {notes}"
         )
-        
+
         # Update status
         ticket.status = TicketStatus.REFINED
         await self.backlog.save_ticket(ticket)
-        
+
         # Hand off to architect for technical analysis
         return AgentResponse(
             success=True,
@@ -121,26 +121,26 @@ class ProductOwnerAgent(BaseAgent):
     async def _read_implementation_files(self, ticket) -> str:
         """Read source files related to the ticket implementation."""
         file_contents = []
-        
+
         # Get files from technical context
         related_files = []
         if ticket.technical_context and ticket.technical_context.related_files:
             related_files = [f.path for f in ticket.technical_context.related_files]
-        
+
         # Add common implementation files
         common_files = ["main.py", "app.py", "index.py", "server.py"]
         for f in common_files:
             if f not in related_files:
                 related_files.append(f)
-        
+
         # Also check for test files
-        
+
         if not self.tools:
             return "Keine Tools verfügbar zum Lesen der Dateien."
-        
+
         read_file = self.tools.get("read_file")
         find_files = self.tools.get("find_files")
-        
+
         # Find test files
         if find_files:
             try:
@@ -154,7 +154,7 @@ class ProductOwnerAgent(BaseAgent):
                                 related_files.append(path)
             except Exception:
                 pass
-        
+
         # Read each file
         if read_file:
             for file_path in related_files[:10]:  # Limit to 10 files
@@ -165,21 +165,21 @@ class ProductOwnerAgent(BaseAgent):
                         file_contents.append(f"### {file_path}\n```\n{content}\n```")
                 except Exception:
                     pass
-        
+
         if not file_contents:
             return "Keine Implementierungsdateien gefunden."
-        
+
         return "\n\n".join(file_contents)
 
     async def _run_tests_for_validation(self) -> str:
         """Run tests and return results for validation."""
         if not self.tools:
             return "Keine Tools verfügbar zum Ausführen der Tests."
-        
+
         run_command = self.tools.get("run_command")
         if not run_command:
             return "run_command Tool nicht verfügbar."
-        
+
         try:
             # Run pytest
             result = await run_command.execute(
@@ -187,7 +187,7 @@ class ProductOwnerAgent(BaseAgent):
                 cwd=".",
                 timeout=120,
             )
-            
+
             if result.success:
                 output = str(result.output)[:2000]
                 return f"✅ Tests erfolgreich:\n{output}"
@@ -207,7 +207,7 @@ class ProductOwnerAgent(BaseAgent):
                 action_taken="validation_failed",
                 message="Keine Ticket-ID angegeben.",
             )
-        
+
         ticket = self.backlog.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
@@ -217,7 +217,7 @@ class ProductOwnerAgent(BaseAgent):
                 action_taken="validation_failed",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         if ticket.status != TicketStatus.REVIEW:
             return AgentResponse(
                 success=False,
@@ -226,7 +226,7 @@ class ProductOwnerAgent(BaseAgent):
                 action_taken="validation_failed",
                 message=f"Ticket {ticket_id} ist nicht im Review-Status.",
             )
-        
+
         # Get implementation details
         implementation_info = {
             "commits": ticket.implementation.commits,
@@ -235,41 +235,45 @@ class ProductOwnerAgent(BaseAgent):
                 for st in ticket.implementation.subtasks
             ],
         }
-        
+
+        # Ensure we are on the correct feature branch before validating code
+        if getattr(ticket, 'implementation', None) and getattr(ticket.implementation, 'branch', None):
+            await self._ensure_feature_branch(ticket.implementation.branch)
+
         # Read actual source files for validation
         file_contents = await self._read_implementation_files(ticket)
-        
+
         # Run tests if available
         test_results = await self._run_tests_for_validation()
-        
+
         # Get conversation history for context
         conversation = self.message_bus.get_conversation_context(ticket_id, limit=10)
-        
+
         # Use LLM to validate
         validation = await self._call_llm_json(
             user_message=f"""
             Validiere die Implementierung gegen die Acceptance Criteria.
-            
+
             ## Acceptance Criteria
             {ticket.acceptance_criteria}
-            
+
             ## Implementierungsdetails
             {implementation_info}
-            
+
             ## Quellcode der Implementierung
             {file_contents}
-            
+
             ## Test-Ergebnisse
             {test_results}
-            
+
             ## Kommunikationsverlauf (Kurzfassung)
             {conversation[:2000] if conversation else "Keine Konversation verfügbar"}
-            
+
             WICHTIG: Bewerte die Implementierung anhand des tatsächlichen Quellcodes und der Testergebnisse.
             Wenn Tests erfolgreich sind und der Code die Kriterien erfüllt, ist die Validation bestanden.
-            
+
             Prüfe jedes Acceptance Criterion und bewerte:
-            
+
             Antworte mit JSON:
             {{
                 "validation_results": [
@@ -287,9 +291,9 @@ class ProductOwnerAgent(BaseAgent):
             """,
             ticket=ticket,
         )
-        
+
         overall_passed = validation.get("overall_passed", False)
-        
+
         if overall_passed:
             ticket.status = TicketStatus.DONE
             ticket.add_comment(self.name, "✅ Alle Acceptance Criteria erfüllt. Ticket abgeschlossen.")
@@ -300,9 +304,9 @@ class ProductOwnerAgent(BaseAgent):
                 self.name,
                 f"❌ Validation fehlgeschlagen. Issues: {', '.join(issues)}"
             )
-        
+
         await self.backlog.save_ticket(ticket)
-        
+
         return AgentResponse(
             success=overall_passed,
             agent=self.name,
@@ -321,7 +325,7 @@ class ProductOwnerAgent(BaseAgent):
             if ticket and ticket.status == TicketStatus.REVIEW:
                 # Ticket in review from architect → validate
                 return await self._validate_implementation(message.ticket_id)
-        
+
         # Fallback to content-based routing
         if "validiere" in message.content.lower() or "prüfe" in message.content.lower():
             return await self._validate_implementation(message.ticket_id)

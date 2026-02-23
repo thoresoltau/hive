@@ -1,6 +1,11 @@
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock, patch
+
+@pytest.fixture
+def mock_openai_client():
+    with patch("agents.base_agent.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        yield mock_acompletion
 
 from agents.base_agent import BaseAgent
 from tools.base import Tool, ToolRegistry
@@ -43,7 +48,7 @@ def agent(mock_openai_client):
     )
 
 @pytest.mark.asyncio
-async def test_critical_failure_message(agent, mock_openai_client_with_tools):
+async def test_critical_failure_message(agent, mock_openai_client):
     """Test that max retries result in a CRITICAL_FAILURE message."""
 
     final_message = MagicMock()
@@ -55,8 +60,8 @@ async def test_critical_failure_message(agent, mock_openai_client_with_tools):
     final_response.choices[0].message = final_message
 
     # Initial call returns tool call, Second call returns final answer
-    mock_openai_client_with_tools.side_effect = [
-        mock_openai_client_with_tools.return_value, # The tool call setup in fixture
+    mock_openai_client.side_effect = [
+        mock_openai_client.return_value, # The tool call setup in fixture
         final_response
     ]
 

@@ -28,7 +28,7 @@ class TestMCPProtocol:
             method="tools/list",
             params={"cursor": None},
         )
-        
+
         assert request.jsonrpc == "2.0"
         assert request.id == "test-1"
         assert request.method == "tools/list"
@@ -40,7 +40,7 @@ class TestMCPProtocol:
             id="test-1",
             result={"tools": []},
         )
-        
+
         assert not response.is_error
         assert response.result == {"tools": []}
         assert response.error is None
@@ -51,7 +51,7 @@ class TestMCPProtocol:
             id="test-1",
             error=MCPError(code=-32600, message="Invalid request"),
         )
-        
+
         assert response.is_error
         assert response.error.code == -32600
         assert response.error.message == "Invalid request"
@@ -70,7 +70,7 @@ class TestMCPProtocol:
                 "required": ["library"],
             },
         )
-        
+
         assert schema.name == "get_docs"
         params = schema.get_parameters()
         assert len(params) == 2
@@ -88,7 +88,7 @@ class TestMCPProtocol:
             ],
             isError=False,
         )
-        
+
         assert not result.is_error
         assert len(result.content) == 2
         text = result.get_text()
@@ -106,7 +106,7 @@ class TestMCPConfig:
             transport="http",
             url="https://example.com/mcp",
         )
-        
+
         assert config.name == "test"
         assert config.transport == "http"
         assert config.enabled
@@ -116,14 +116,14 @@ class TestMCPConfig:
     def test_config_env_resolution(self, monkeypatch):
         """Should resolve environment variables."""
         monkeypatch.setenv("TEST_API_KEY", "secret123")
-        
+
         config = MCPServerConfig(
             name="test",
             transport="http",
             url="https://example.com/mcp",
             api_key="${TEST_API_KEY}",
         )
-        
+
         assert config.api_key == "secret123"
 
     def test_config_auth_header(self):
@@ -134,7 +134,7 @@ class TestMCPConfig:
             url="https://example.com/mcp",
             api_key="my-api-key",
         )
-        
+
         header = config.get_auth_header()
         assert header == ("Authorization", "Bearer my-api-key")
 
@@ -144,7 +144,7 @@ class TestMCPConfig:
             name="test",
             transport="http",
         )
-        
+
         errors = config.validate()
         assert len(errors) == 1
         assert "url" in errors[0].lower()
@@ -155,7 +155,7 @@ class TestMCPConfig:
             name="test",
             transport="stdio",
         )
-        
+
         errors = config.validate()
         assert len(errors) == 1
         assert "command" in errors[0].lower()
@@ -174,9 +174,9 @@ mcp_servers:
     url: https://disabled.com/mcp
     enabled: false
 """)
-        
+
         configs = load_mcp_config(config_file)
-        
+
         assert "test_server" in configs
         assert "disabled_server" in configs
         assert configs["test_server"].url == "https://test.com/mcp"
@@ -206,7 +206,7 @@ class TestMCPClient:
     async def test_client_connect(self, client_config):
         """Should connect and initialize."""
         client = MCPClient(client_config)
-        
+
         with patch("core.mcp.client.create_transport") as mock_create:
             mock_transport = AsyncMock()
             mock_transport.is_connected = True
@@ -219,9 +219,9 @@ class TestMCPClient:
                 },
             ))
             mock_create.return_value = mock_transport
-            
+
             await client.connect()
-            
+
             assert client.is_connected
             assert client.is_initialized
             assert client.capabilities.supports_tools
@@ -231,7 +231,7 @@ class TestMCPClient:
         client = MCPClient(client_config)
         client._initialized = True
         client._capabilities = MCPServerCapabilities(tools={})
-        
+
         mock_transport = AsyncMock()
         mock_transport.is_connected = True
         mock_transport.send_with_retry = AsyncMock(return_value=MCPResponse(
@@ -244,9 +244,9 @@ class TestMCPClient:
             },
         ))
         client._transport = mock_transport
-        
+
         tools = await client.list_tools()
-        
+
         assert len(tools) == 2
         assert tools[0].name == "get_docs"
         assert tools[1].name == "search"
@@ -255,7 +255,7 @@ class TestMCPClient:
         """Should call tool and return result."""
         client = MCPClient(client_config)
         client._initialized = True
-        
+
         mock_transport = AsyncMock()
         mock_transport.is_connected = True
         mock_transport.send_with_retry = AsyncMock(return_value=MCPResponse(
@@ -266,9 +266,9 @@ class TestMCPClient:
             },
         ))
         client._transport = mock_transport
-        
+
         result = await client.call_tool("get_docs", {"library": "react"})
-        
+
         assert not result.is_error
         assert "Documentation content" in result.get_text()
 
@@ -280,9 +280,9 @@ class TestMCPClientManager:
         """Should register server."""
         manager = MCPClientManager()
         config = MCPServerConfig(name="test", transport="http", url="https://test.com")
-        
+
         manager.register_server("test", config)
-        
+
         assert "test" in manager.servers
         assert manager.get_client("test") is not None
 
@@ -290,30 +290,30 @@ class TestMCPClientManager:
         """Should unregister server."""
         manager = MCPClientManager()
         config = MCPServerConfig(name="test", transport="http", url="https://test.com")
-        
+
         manager.register_server("test", config)
         manager.unregister_server("test")
-        
+
         assert "test" not in manager.servers
 
     async def test_connect_all(self):
         """Should connect to all servers."""
         manager = MCPClientManager()
-        
+
         # Register mock clients
         mock_client1 = AsyncMock(spec=MCPClient)
         mock_client1.is_connected = True
         mock_client1.connect = AsyncMock()
-        
+
         mock_client2 = AsyncMock(spec=MCPClient)
         mock_client2.is_connected = True
         mock_client2.connect = AsyncMock()
-        
+
         manager._clients = {"server1": mock_client1, "server2": mock_client2}
-        
+
         with patch.object(manager, "connect", side_effect=[True, True]):
             results = await manager.connect_all()
-        
+
         assert results["server1"]
         assert results["server2"]
 
@@ -331,10 +331,10 @@ mcp_servers:
     url: https://server2.com/mcp
     enabled: false
 """)
-        
+
         manager = MCPClientManager(config_path=config_file)
         count = manager.load_from_config()
-        
+
         # Only enabled servers should be loaded
         assert count == 1
         assert "server1" in manager.servers
@@ -370,18 +370,19 @@ class TestMCPTool:
     def test_mcp_tool_creation(self, mock_client, tool_schema):
         """Should create MCPTool from schema."""
         tool = MCPTool(
-            mcp_tool_schema=tool_schema,
-            server_name="context7",
+            mock_client,
+            tool_schema,
+            "context7",
         )
-        
+
         assert tool.name == "mcp_context7_get_docs"
         assert "context7" in tool.description
         assert len(tool.parameters) == 2
-        
+
         # Check parameter conversion
         lib_param = next(p for p in tool.parameters if p.name == "library")
         assert lib_param.required
-        
+
         topic_param = next(p for p in tool.parameters if p.name == "topic")
         assert not topic_param.required
 
@@ -391,10 +392,10 @@ class TestMCPTool:
             content=[{"type": "text", "text": "# React Hooks\n\nDocumentation..."}],
             isError=False,
         ))
-        
+
         tool = MCPTool(mock_client, tool_schema, "context7")
         result = await tool.execute(library="react", topic="hooks")
-        
+
         assert result.success
         assert "React Hooks" in result.output
         assert result.metadata["mcp_server"] == "context7"
@@ -405,19 +406,19 @@ class TestMCPTool:
             content=[{"type": "text", "text": "Library not found"}],
             isError=True,
         ))
-        
+
         tool = MCPTool(mock_client, tool_schema, "context7")
         result = await tool.execute(library="unknown")
-        
+
         assert result.status == ToolResultStatus.ERROR
 
     async def test_mcp_tool_not_connected(self, mock_client, tool_schema):
         """Should return error if client not connected."""
         mock_client.is_connected = False
-        
+
         tool = MCPTool(mock_client, tool_schema, "context7")
         result = await tool.execute(library="react")
-        
+
         assert result.status == ToolResultStatus.ERROR
         assert "not connected" in result.error.lower()
 
@@ -425,7 +426,7 @@ class TestMCPTool:
         """Should convert to OpenAI function schema."""
         tool = MCPTool(mock_client, tool_schema, "context7")
         schema = tool.to_openai_schema()
-        
+
         assert schema["type"] == "function"
         assert schema["function"]["name"] == "mcp_context7_get_docs"
         assert "library" in schema["function"]["parameters"]["properties"]
@@ -445,10 +446,10 @@ class TestMCPToolFactory:
             MCPToolSchema(name="tool2", description="Tool 2"),
         ])
         mock_manager.get_client.return_value = mock_client
-        
+
         factory = MCPToolFactory(mock_manager)
         tools = await factory.create_tools_for_server("test_server")
-        
+
         assert len(tools) == 2
         assert tools[0].name == "mcp_test_server_tool1"
         assert tools[1].name == "mcp_test_server_tool2"
@@ -457,10 +458,10 @@ class TestMCPToolFactory:
         """Should return empty list if server not found."""
         mock_manager = MagicMock()
         mock_manager.get_client.return_value = None
-        
+
         factory = MCPToolFactory(mock_manager)
         tools = await factory.create_tools_for_server("unknown")
-        
+
         assert tools == []
 
 
@@ -470,7 +471,7 @@ class TestToolRegistryMCP:
     async def test_register_mcp_tools(self):
         """Should register MCP tools in registry."""
         registry = ToolRegistry()
-        
+
         mock_manager = MagicMock()
         mock_manager.connected_servers = ["server1"]
         mock_client = AsyncMock(spec=MCPClient)
@@ -479,42 +480,42 @@ class TestToolRegistryMCP:
             MCPToolSchema(name="tool1", description="Tool 1"),
         ])
         mock_manager.get_client.return_value = mock_client
-        
+
         count = await registry.register_mcp_tools(mock_manager)
-        
+
         assert count == 1
         assert registry.get("mcp_server1_tool1") is not None
 
     def test_get_mcp_tools(self):
         """Should filter MCP tools from registry."""
         registry = ToolRegistry()
-        
+
         # Add a regular tool
         from tools.file_ops import ReadFileTool
         registry.register(ReadFileTool())
-        
+
         # Add mock MCP tool
         mock_client = AsyncMock(spec=MCPClient)
         mock_client.is_connected = True
         schema = MCPToolSchema(name="test", description="Test")
         mcp_tool = MCPTool(mock_client, schema, "server1")
         registry.register(mcp_tool)
-        
+
         mcp_tools = registry.get_mcp_tools()
-        
+
         assert len(mcp_tools) == 1
         assert mcp_tools[0].name == "mcp_server1_test"
 
     def test_unregister_tool(self):
         """Should unregister tool by name."""
         registry = ToolRegistry()
-        
+
         from tools.file_ops import ReadFileTool
         registry.register(ReadFileTool())
-        
+
         assert registry.get("read_file") is not None
-        
+
         result = registry.unregister("read_file")
-        
+
         assert result
         assert registry.get("read_file") is None

@@ -33,7 +33,7 @@ class ArchitectAgent(BaseAgent):
     async def process_task(self, message: AgentMessage) -> AgentResponse:
         """Process a task assignment."""
         task_type = message.context.get("task_type", "analyze")
-        
+
         if task_type == "review":
             return await self._review_implementation(message.ticket_id)
         elif task_type == "estimate":
@@ -54,7 +54,7 @@ class ArchitectAgent(BaseAgent):
                 action_taken="analysis_failed",
                 message="Keine Ticket-ID angegeben.",
             )
-        
+
         ticket = self.backlog.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
@@ -64,20 +64,20 @@ class ArchitectAgent(BaseAgent):
                 action_taken="analysis_failed",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         # Get codebase structure if available
         codebase_info = await self._get_codebase_structure()
-        
+
         # Use LLM to analyze and plan
         analysis = await self._call_llm_json(
             user_message=f"""
             Analysiere dieses Ticket und erstelle einen technischen Implementierungsplan.
-            
+
             ## Codebase-Struktur
             {codebase_info}
-            
+
             {additional_context}
-            
+
             Erstelle:
             1. Liste der betroffenen Bereiche
             2. Benötigte Dependencies
@@ -85,7 +85,7 @@ class ArchitectAgent(BaseAgent):
             4. Implementierungshinweise
             5. Subtasks für die Entwickler
             6. Komplexitätsschätzung
-            
+
             Antworte mit JSON:
             {{
                 "affected_areas": ["area1", "area2"],
@@ -107,7 +107,7 @@ class ArchitectAgent(BaseAgent):
             """,
             ticket=ticket,
         )
-        
+
         # Update ticket with technical context
         ticket.technical_context = TechnicalContext(
             affected_areas=analysis.get("affected_areas", []),
@@ -118,28 +118,28 @@ class ArchitectAgent(BaseAgent):
             ],
             implementation_notes=analysis.get("implementation_notes", ""),
         )
-        
+
         # Update estimation
         ticket.estimation = Estimation(
             story_points=analysis.get("story_points"),
             complexity=Complexity(analysis.get("complexity", "medium")),
         )
-        
+
         # Create subtasks
         ticket.implementation.subtasks = [
             Subtask(id=st["id"], description=st["description"])
             for st in analysis.get("subtasks", [])
         ]
-        
+
         # Set branch name
         ticket.implementation.branch = f"feature/{ticket.id.lower()}-{ticket.title.lower().replace(' ', '-')[:30]}"
-        
+
         # Add comment
         risks = analysis.get("risks", [])
         comment = f"Technische Analyse abgeschlossen. Komplexität: {analysis.get('complexity')}."
         if risks:
             comment += f" Risiken: {', '.join(risks)}."
-            
+
         # ADR Trigger Logik
         arch_notes = analysis.get("architectural_notes", "")
         if arch_notes and len(arch_notes) > 20: # Nur bei substantiellen Notes
@@ -152,33 +152,33 @@ class ArchitectAgent(BaseAgent):
                 ticket_id=ticket.id
             )
             comment += f"\n\n🛑 **ADR Proposed**: `{adr_file}`. Bitte um Review!"
-            
+
         elif arch_notes:
             comment += f" {arch_notes}"
-            
+
         ticket.add_comment(self.name, comment)
-        
+
         # Update status to planned
         ticket.status = TicketStatus.PLANNED
         await self.backlog.save_ticket(ticket)
-        
+
         # Determine next agent based on affected areas
         next_agent = self._determine_developer(analysis.get("affected_areas", []))
-        
+
         # Determine ADR status
         adr_file = None
-        
+
         # ADR Trigger Logik restoration (captured in local vars)
         arch_notes = analysis.get("architectural_notes", "")
         if arch_notes and len(arch_notes) > 20:
              # Logic was executed above, we need to know if it happened.
              # Ideally we capture the filename in previous block.
              pass
-             
+
         # Re-implementing block to capture filename variable properly
         # WARN: previous replace might have made code messy if I don't see full context.
         # Let's rely on 'analysis' dict modification? No.
-        
+
         return AgentResponse(
             success=True,
             agent=self.name,
@@ -198,7 +198,7 @@ class ArchitectAgent(BaseAgent):
                 action_taken="review_failed",
                 message="Keine Ticket-ID angegeben.",
             )
-        
+
         ticket = self.backlog.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
@@ -208,27 +208,31 @@ class ArchitectAgent(BaseAgent):
                 action_taken="review_failed",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         # Get implementation details
         implementation = ticket.implementation
         related_files = ticket.technical_context.related_files
-        
+
+        # Ensure we are on the correct feature branch before reviewing code
+        if implementation and getattr(implementation, 'branch', None):
+            await self._ensure_feature_branch(implementation.branch)
+
         # Use tools to get actual code content for review
         if self.tools:
             # Step 1: Get git diff to see what changed
             # Step 2: Read the actual changed/created files
             # Step 3: Review based on real code
-            
+
             review_response, tool_results = await self._call_llm_with_tools(
                 user_message=f"""
                 Führe ein ECHTES Code-Review für dieses Ticket durch.
-                
+
                 ## Implementierungsdetails
                 - Branch: {implementation.branch}
                 - Commits: {implementation.commits}
                 - Subtasks: {[st.model_dump() for st in implementation.subtasks]}
                 - Relevante Dateien: {[rf.path for rf in related_files]}
-                
+
                 ## Deine Aufgabe:
                 1. Nutze git_diff um die Änderungen zu sehen
                 2. Nutze read_file um die geänderten Dateien zu lesen
@@ -238,7 +242,7 @@ class ArchitectAgent(BaseAgent):
                    - Best Practices (Naming, Struktur, etc.)
                    - Potenzielle Bugs oder Security-Issues
                    - Vollständigkeit (erfüllt die Acceptance Criteria?)
-                
+
                 ## Am Ende:
                 Gib dein Review-Ergebnis als JSON zurück:
                 {{
@@ -254,19 +258,19 @@ class ArchitectAgent(BaseAgent):
                 ticket=ticket,
                 max_tool_calls=15,
             )
-            
+
             # Get structured review result via separate JSON call
             files_read = sum(1 for r in tool_results if r["tool"] == "read_file" and r["success"])
-            
+
             if files_read > 0:
                 # Generate structured review based on what was read
                 review = await self._call_llm_json(
                     user_message=f"""
                     Basierend auf deinem Code-Review, gib das Ergebnis als JSON zurück:
-                    
+
                     Deine bisherige Analyse:
                     {review_response[:2000]}
-                    
+
                     Antworte NUR mit JSON:
                     {{
                         "approved": true/false,
@@ -292,12 +296,12 @@ class ArchitectAgent(BaseAgent):
             review = await self._call_llm_json(
                 user_message=f"""
                 Führe ein Code-Review für dieses Ticket durch (ohne Datei-Zugriff).
-                
+
                 ## Implementierungsdetails
                 - Branch: {implementation.branch}
                 - Commits: {implementation.commits}
                 - Subtasks: {[st.model_dump() for st in implementation.subtasks]}
-                
+
                 Antworte mit JSON:
                 {{
                     "approved": true/false,
@@ -309,9 +313,9 @@ class ArchitectAgent(BaseAgent):
                 """,
                 ticket=ticket,
             )
-        
+
         approved = review.get("approved", False)
-        
+
         if approved:
             ticket.status = TicketStatus.REVIEW
             ticket.add_comment(self.name, f"✅ Code-Review bestanden. Score: {review.get('quality_score')}/10")
@@ -322,9 +326,9 @@ class ArchitectAgent(BaseAgent):
                 self.name,
                 f"❌ Code-Review: {len(errors)} Fehler gefunden. Nacharbeit erforderlich."
             )
-        
+
         await self.backlog.save_ticket(ticket)
-        
+
         return AgentResponse(
             success=approved,
             agent=self.name,
@@ -344,7 +348,7 @@ class ArchitectAgent(BaseAgent):
                 action_taken="estimation_failed",
                 message="Keine Ticket-ID angegeben.",
             )
-        
+
         ticket = self.backlog.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
@@ -354,16 +358,16 @@ class ArchitectAgent(BaseAgent):
                 action_taken="estimation_failed",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         estimation = await self._call_llm_json(
             user_message="""
             Schätze die Komplexität und den Aufwand für dieses Ticket.
-            
+
             Berücksichtige:
             - Akzeptanzkriterien
             - Technischen Kontext
             - Potenzielle Risiken
-            
+
             Antworte mit JSON:
             {
                 "complexity": "low|medium|high",
@@ -374,13 +378,13 @@ class ArchitectAgent(BaseAgent):
             """,
             ticket=ticket,
         )
-        
+
         ticket.estimation = Estimation(
             complexity=Complexity(estimation.get("complexity", "medium")),
             story_points=estimation.get("story_points"),
         )
         await self.backlog.save_ticket(ticket)
-        
+
         return AgentResponse(
             success=True,
             agent=self.name,
@@ -394,7 +398,7 @@ class ArchitectAgent(BaseAgent):
         """Get codebase structure for context."""
         if not self.codebase_path or not self.codebase_path.exists():
             return "Keine Codebase verfügbar."
-        
+
         # Simple tree structure
         structure = []
         for item in sorted(self.codebase_path.rglob("*")):
@@ -403,14 +407,14 @@ class ArchitectAgent(BaseAgent):
             if item.is_file() and item.suffix in [".py", ".ts", ".js", ".tsx", ".jsx", ".yaml", ".json"]:
                 rel_path = item.relative_to(self.codebase_path)
                 structure.append(str(rel_path))
-        
+
         return "\n".join(structure[:100])  # Limit to 100 files
 
     def _determine_developer(self, affected_areas: list[str]) -> str:
         """Determine which developer should work on the ticket."""
         frontend_keywords = ["frontend", "ui", "component", "css", "style", "react", "vue", "page"]
         backend_keywords = ["backend", "api", "database", "server", "auth", "service"]
-        
+
         has_frontend = any(
             any(kw in area.lower() for kw in frontend_keywords)
             for area in affected_areas
@@ -419,7 +423,7 @@ class ArchitectAgent(BaseAgent):
             any(kw in area.lower() for kw in backend_keywords)
             for area in affected_areas
         )
-        
+
         if has_frontend and has_backend:
             return "backend_dev"  # Backend first, then frontend
         elif has_frontend:
@@ -434,7 +438,7 @@ class ArchitectAgent(BaseAgent):
             ticket = self.backlog.get_ticket(message.ticket_id)
             if ticket and ticket.status == TicketStatus.REVIEW:
                 return await self._review_implementation(message.ticket_id)
-        
+
         # Fallback to content-based routing
         if "review" in message.content.lower():
             return await self._review_implementation(message.ticket_id)
@@ -453,25 +457,25 @@ class ArchitectAgent(BaseAgent):
     ) -> str:
         """Create a new ADR proposal."""
         import datetime
-        
+
         # Check for existing ADRs to determine ID
         adr_dir = Path("docs/adr")
         if self.codebase_path:
             adr_dir = self.codebase_path / "docs/adr"
-            
+
         if not adr_dir.exists():
             adr_dir.mkdir(parents=True, exist_ok=True)
-            
+
         existing = list(adr_dir.glob("[0-9][0-9][0-9]*"))
         next_id = len(existing) + 1
-        
+
         slug = title.lower().replace(" ", "-")[:50]
         filename = f"{next_id:03d}-{slug}.md"
         file_path = adr_dir / filename
-        
+
         # Determine deciders (team)
         deciders = ["Architect", "Product Owner", "Backend Dev", "Frontend Dev"]
-        
+
         template = f"""# {next_id}. {title}
 
 Status: Proposed
@@ -506,7 +510,7 @@ Chosen option: "{decision}"
 
 * {consequences}
 """
-        
+
         # Write file directly if tools not available (fallback), else use write_file tool
         if self.tools:
             write_tool = self.tools.get("write_file")
@@ -520,5 +524,5 @@ Chosen option: "{decision}"
                 file_path.write_text(template)
         else:
             file_path.write_text(template)
-            
+
         return str(filename)
