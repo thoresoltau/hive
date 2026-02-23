@@ -507,7 +507,7 @@ class BaseAgent(ABC):
         
         # Branch existiert bereits → wechseln
         error_str = str(result.error) if result.error else ""
-        if "bereits existiert" in error_str or "already exists" in error_str:
+        if "existiert bereits" in error_str or "already exists" in error_str:
             switch_result = await git_branch.execute(branch_name=branch_name, action="switch")
             if switch_result.success:
                 self.log.info(f"Zu Branch '{branch_name}' gewechselt")

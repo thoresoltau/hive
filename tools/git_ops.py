@@ -15,7 +15,7 @@ async def run_git_command(
 ) -> tuple[bool, str, str]:
     """
     Run a git command asynchronously.
-    
+
     Returns:
         Tuple of (success, stdout, stderr)
     """
@@ -26,15 +26,15 @@ async def run_git_command(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
+
         stdout, stderr = await asyncio.wait_for(
             process.communicate(),
             timeout=timeout,
         )
-        
+
         success = process.returncode == 0
         return success, stdout.decode(), stderr.decode()
-        
+
     except asyncio.TimeoutError:
         return False, "", "Git command timed out"
     except FileNotFoundError:
@@ -45,10 +45,10 @@ async def run_git_command(
 
 class GitStatusTool(Tool):
     """Tool to check git repository status."""
-    
+
     name = "git_status"
     description = "Zeigt den aktuellen Git-Status des Repositories (geänderte, neue, gelöschte Dateien)"
-    
+
     parameters = [
         ToolParameter(
             name="short",
@@ -57,24 +57,24 @@ class GitStatusTool(Tool):
             required=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(self, short: bool = False) -> ToolResult:
         args = ["status"]
         if short:
             args.append("--short")
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr or "Git status failed",
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={"status": stdout.strip()},
@@ -83,10 +83,10 @@ class GitStatusTool(Tool):
 
 class GitBranchTool(Tool):
     """Tool to manage git branches."""
-    
+
     name = "git_branch"
     description = "Verwaltet Git-Branches: erstellen, wechseln, auflisten oder löschen"
-    
+
     parameters = [
         ToolParameter(
             name="branch_name",
@@ -114,10 +114,10 @@ class GitBranchTool(Tool):
             default=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         branch_name: str = "",
@@ -130,34 +130,34 @@ class GitBranchTool(Tool):
                 ["branch", "-a"],
                 self.workspace_path,
             )
-            
+
             if not success:
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
                     error=stderr,
                 )
-            
+
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
                 output={"branches": stdout.strip()},
             )
-        
+
         if not branch_name:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error="branch_name ist erforderlich",
             )
-        
+
         if action == "create":
             # Create and switch to new branch
             args = ["checkout", "-b", branch_name]
             if base_branch:
                 args.append(base_branch)
-            
+
             success, stdout, stderr = await run_git_command(args, self.workspace_path)
-            
+
             if not success:
                 # Branch might already exist, try just switching
                 if "already exists" in stderr:
@@ -171,7 +171,7 @@ class GitBranchTool(Tool):
                     output=None,
                     error=stderr,
                 )
-            
+
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
                 output={
@@ -180,20 +180,20 @@ class GitBranchTool(Tool):
                     "message": f"Branch '{branch_name}' erstellt und aktiviert",
                 },
             )
-            
+
         elif action == "switch":
             success, stdout, stderr = await run_git_command(
                 ["checkout", branch_name],
                 self.workspace_path,
             )
-            
+
             if not success:
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
                     error=stderr,
                 )
-            
+
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
                 output={
@@ -202,7 +202,7 @@ class GitBranchTool(Tool):
                     "message": f"Gewechselt zu Branch '{branch_name}'",
                 },
             )
-        
+
         elif action == "delete":
             # Safety: Don't delete protected branches
             protected_branches = {"main", "master", "develop", "production"}
@@ -212,7 +212,7 @@ class GitBranchTool(Tool):
                     output=None,
                     error=f"Branch '{branch_name}' ist geschützt und kann nicht gelöscht werden.",
                 )
-            
+
             # Check if we're on the branch to delete
             success, current, _ = await run_git_command(
                 ["branch", "--show-current"],
@@ -224,14 +224,14 @@ class GitBranchTool(Tool):
                     output=None,
                     error=f"Kann aktuellen Branch '{branch_name}' nicht löschen. Wechsle zuerst zu einem anderen Branch.",
                 )
-            
+
             # Delete branch
             delete_flag = "-D" if force else "-d"
             success, stdout, stderr = await run_git_command(
                 ["branch", delete_flag, branch_name],
                 self.workspace_path,
             )
-            
+
             if not success:
                 if "not fully merged" in stderr:
                     return ToolResult(
@@ -244,7 +244,7 @@ class GitBranchTool(Tool):
                     output=None,
                     error=stderr,
                 )
-            
+
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
                 output={
@@ -253,7 +253,7 @@ class GitBranchTool(Tool):
                     "message": f"Branch '{branch_name}' gelöscht",
                 },
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.ERROR,
             output=None,
@@ -263,10 +263,10 @@ class GitBranchTool(Tool):
 
 class GitCommitTool(Tool):
     """Tool to commit changes."""
-    
+
     name = "git_commit"
     description = "Staged Änderungen committen. Optional können Dateien vorher gestaged werden."
-    
+
     parameters = [
         ToolParameter(
             name="message",
@@ -287,10 +287,10 @@ class GitCommitTool(Tool):
             required=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         message: str,
@@ -303,7 +303,7 @@ class GitCommitTool(Tool):
                 output=None,
                 error="Commit-Message ist erforderlich",
             )
-        
+
         # Stage files
         if files:
             for file in files:
@@ -329,19 +329,19 @@ class GitCommitTool(Tool):
                     output=None,
                     error=f"Fehler beim Stagen: {stderr}",
                 )
-        
+
         # Format commit message with ticket ID
         if ticket_id:
             full_message = f"[{ticket_id}] {message}"
         else:
             full_message = message
-        
+
         # Commit
         success, stdout, stderr = await run_git_command(
             ["commit", "-m", full_message],
             self.workspace_path,
         )
-        
+
         if not success:
             if "nothing to commit" in stderr or "nothing to commit" in stdout:
                 return ToolResult(
@@ -357,13 +357,13 @@ class GitCommitTool(Tool):
                 output=None,
                 error=error_msg,
             )
-        
+
         # Get commit hash
         success, commit_hash, _ = await run_git_command(
             ["rev-parse", "--short", "HEAD"],
             self.workspace_path,
         )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
@@ -376,10 +376,10 @@ class GitCommitTool(Tool):
 
 class GitDiffTool(Tool):
     """Tool to show git diff."""
-    
+
     name = "git_diff"
     description = "Zeigt Änderungen (Diff) für Dateien oder das gesamte Repository"
-    
+
     parameters = [
         ToolParameter(
             name="file_path",
@@ -394,20 +394,28 @@ class GitDiffTool(Tool):
             required=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         file_path: Optional[str] = None,
         staged: bool = False,
     ) -> ToolResult:
+        if not staged:
+            if file_path:
+                full_path = os.path.join(self.workspace_path, file_path)
+                if os.path.exists(full_path):
+                    await run_git_command(["add", "-N", file_path], self.workspace_path)
+            else:
+                await run_git_command(["add", "-N", "."], self.workspace_path)
+
         args = ["diff"]
-        
+
         if staged:
             args.append("--staged")
-        
+
         if file_path:
             full_path = os.path.join(self.workspace_path, file_path)
             if not os.path.exists(full_path):
@@ -417,28 +425,28 @@ class GitDiffTool(Tool):
                     error=f"Datei nicht gefunden: {file_path}",
                 )
             args.append(file_path)
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr,
             )
-        
+
         if not stdout.strip():
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
                 output={"diff": "Keine Änderungen"},
             )
-        
+
         # Truncate if too long
         max_length = 5000
         diff_output = stdout
         if len(diff_output) > max_length:
             diff_output = diff_output[:max_length] + "\n... (truncated)"
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={"diff": diff_output},
@@ -447,10 +455,10 @@ class GitDiffTool(Tool):
 
 class GitLogTool(Tool):
     """Tool to show git log."""
-    
+
     name = "git_log"
     description = "Zeigt die Commit-Historie"
-    
+
     parameters = [
         ToolParameter(
             name="count",
@@ -471,10 +479,10 @@ class GitLogTool(Tool):
             required=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         count: int = 10,
@@ -482,24 +490,24 @@ class GitLogTool(Tool):
         file_path: Optional[str] = None,
     ) -> ToolResult:
         args = ["log", f"-{count}"]
-        
+
         if oneline:
             args.append("--oneline")
         else:
             args.extend(["--pretty=format:%h - %s (%ci) <%an>"])
-        
+
         if file_path:
             args.extend(["--", file_path])
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr,
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={"log": stdout.strip() or "Keine Commits gefunden"},
@@ -508,28 +516,28 @@ class GitLogTool(Tool):
 
 class GitCurrentBranchTool(Tool):
     """Tool to get current branch name."""
-    
+
     name = "git_current_branch"
     description = "Zeigt den Namen des aktuellen Branches"
-    
+
     parameters = []
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(self) -> ToolResult:
         success, stdout, stderr = await run_git_command(
             ["branch", "--show-current"],
             self.workspace_path,
         )
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr,
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={"branch": stdout.strip()},
@@ -538,10 +546,10 @@ class GitCurrentBranchTool(Tool):
 
 class GitPushTool(Tool):
     """Tool to push commits to remote."""
-    
+
     name = "git_push"
     description = "Pusht lokale Commits zum Remote-Repository"
-    
+
     parameters = [
         ToolParameter(
             name="remote",
@@ -571,10 +579,10 @@ class GitPushTool(Tool):
             default=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         remote: str = "origin",
@@ -583,27 +591,27 @@ class GitPushTool(Tool):
         force: bool = False,
     ) -> ToolResult:
         args = ["push"]
-        
+
         if set_upstream:
             args.append("-u")
-        
+
         if force:
             args.append("--force")
-        
+
         args.append(remote)
-        
+
         if branch:
             args.append(branch)
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr or "Push failed",
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
@@ -615,10 +623,10 @@ class GitPushTool(Tool):
 
 class GitPullTool(Tool):
     """Tool to pull changes from remote."""
-    
+
     name = "git_pull"
     description = "Holt Änderungen vom Remote-Repository"
-    
+
     parameters = [
         ToolParameter(
             name="remote",
@@ -641,10 +649,10 @@ class GitPullTool(Tool):
             default=False,
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         remote: str = "origin",
@@ -652,17 +660,17 @@ class GitPullTool(Tool):
         rebase: bool = False,
     ) -> ToolResult:
         args = ["pull"]
-        
+
         if rebase:
             args.append("--rebase")
-        
+
         args.append(remote)
-        
+
         if branch:
             args.append(branch)
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             if "conflict" in stderr.lower() or "conflict" in stdout.lower():
                 return ToolResult(
@@ -675,7 +683,7 @@ class GitPullTool(Tool):
                 output=None,
                 error=stderr or "Pull failed",
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
@@ -687,10 +695,10 @@ class GitPullTool(Tool):
 
 class GitResetTool(Tool):
     """Tool to reset changes."""
-    
+
     name = "git_reset"
     description = "Setzt Änderungen zurück (soft/mixed/hard)"
-    
+
     parameters = [
         ToolParameter(
             name="mode",
@@ -707,10 +715,10 @@ class GitResetTool(Tool):
             default="HEAD",
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         mode: str = "mixed",
@@ -723,18 +731,18 @@ class GitResetTool(Tool):
                 output=None,
                 error=f"Ungültiger Modus: {mode}. Erlaubt: {', '.join(valid_modes)}",
             )
-        
+
         args = ["reset", f"--{mode}", target]
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
                 error=stderr,
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
@@ -747,10 +755,10 @@ class GitResetTool(Tool):
 
 class GitCheckoutFileTool(Tool):
     """Tool to checkout specific files."""
-    
+
     name = "git_checkout_file"
     description = "Setzt einzelne Dateien auf den Stand eines Commits zurück"
-    
+
     parameters = [
         ToolParameter(
             name="file_path",
@@ -766,19 +774,19 @@ class GitCheckoutFileTool(Tool):
             default="HEAD",
         ),
     ]
-    
+
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
-    
+
     async def execute(
         self,
         file_path: str,
         ref: str = "HEAD",
     ) -> ToolResult:
         args = ["checkout", ref, "--", file_path]
-        
+
         success, stdout, stderr = await run_git_command(args, self.workspace_path)
-        
+
         if not success:
             if "did not match any" in stderr:
                 return ToolResult(
@@ -791,7 +799,7 @@ class GitCheckoutFileTool(Tool):
                 output=None,
                 error=stderr,
             )
-        
+
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
