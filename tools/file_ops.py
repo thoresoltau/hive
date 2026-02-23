@@ -15,24 +15,24 @@ class ReadFileTool(Tool):
     """Read contents of a file."""
 
     name = "read_file"
-    description = "Liest den Inhalt einer Datei. Gibt den Inhalt mit Zeilennummern zurück."
+    description = "Reads the content of a file. Returns the content with line numbers."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zur Datei (relativ zum Workspace)",
+            description="Path to file (relative to workspace)",
         ),
         ToolParameter(
             name="start_line",
             type="integer",
-            description="Startzeile (1-indexiert, optional)",
+            description="Start line (1-indexed, optional)",
             required=False,
             default=1,
         ),
         ToolParameter(
             name="end_line",
             type="integer",
-            description="Endzeile (optional, liest bis Ende wenn nicht angegeben)",
+            description="End line (optional, reads to end if not specified)",
             required=False,
         ),
     ]
@@ -51,14 +51,14 @@ class ReadFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei nicht gefunden: {path}",
+                    error=f"File not found: {path}",
                 )
 
             if not full_path.is_file():
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Pfad ist keine Datei: {path}",
+                    error=f"Path is not a file: {path}",
                 )
 
             async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
@@ -93,13 +93,13 @@ class ReadFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Datei ist keine Textdatei oder hat unbekannte Kodierung: {path}",
+                error=f"File is not a text file or has unknown encoding: {path}",
             )
         except Exception as e:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Lesen: {str(e)}",
+                error=f"Error reading: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -113,22 +113,22 @@ class WriteFileTool(Tool):
     """Write or create a file."""
 
     name = "write_file"
-    description = "Erstellt eine neue Datei oder überschreibt eine bestehende. Erstellt Verzeichnisse automatisch."
+    description = "Creates a new file or overwrites an existing one. Creates directories automatically."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zur Datei (relativ zum Workspace)",
+            description="Path to file (relative to workspace)",
         ),
         ToolParameter(
             name="content",
             type="string",
-            description="Inhalt der Datei",
+            description="Content of the file",
         ),
         ToolParameter(
             name="overwrite",
             type="boolean",
-            description="Erlaubt Überschreiben existierender Dateien (default: true)",
+            description="Allows overwriting existing files (default: true)",
             required=False,
             default=True,
         ),
@@ -158,7 +158,7 @@ class WriteFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Operation blockiert: {reason}",
+                error=f"Operation blocked: {reason}",
             )
 
         try:
@@ -170,7 +170,7 @@ class WriteFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei existiert bereits: {path}. Setze overwrite=true um zu überschreiben.",
+                    error=f"File already exists: {path}. Set overwrite=true to overwrite.",
                 )
 
             # Create parent directories
@@ -194,7 +194,7 @@ class WriteFileTool(Tool):
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Datei geschrieben: {path} ({line_count} Zeilen)",
+                output=f"File written: {path} ({line_count} lines)",
                 metadata={
                     "path": path,
                     "lines": line_count,
@@ -215,7 +215,7 @@ class WriteFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Schreiben: {str(e)}",
+                error=f"Error writing: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -228,27 +228,27 @@ class EditFileTool(Tool):
     """Edit a file by replacing text."""
 
     name = "edit_file"
-    description = "Bearbeitet eine Datei durch Ersetzen von Text. Sucht old_string und ersetzt mit new_string."
+    description = "Edits a file by replacing text. Finds old_string and replaces with new_string."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zur Datei (relativ zum Workspace)",
+            description="Path to file (relative to workspace)",
         ),
         ToolParameter(
             name="old_string",
             type="string",
-            description="Text der ersetzt werden soll (muss exakt matchen)",
+            description="Text to be replaced (must match exactly)",
         ),
         ToolParameter(
             name="new_string",
             type="string",
-            description="Neuer Text",
+            description="New text",
         ),
         ToolParameter(
             name="replace_all",
             type="boolean",
-            description="Alle Vorkommen ersetzen (default: false, nur erstes)",
+            description="Replace all occurrences (default: false, only first)",
             required=False,
             default=False,
         ),
@@ -269,7 +269,7 @@ class EditFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei nicht gefunden: {path}",
+                    error=f"File not found: {path}",
                 )
 
             async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
@@ -280,7 +280,7 @@ class EditFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Text nicht gefunden in {path}. Stelle sicher, dass der Text exakt übereinstimmt (inkl. Whitespace).",
+                    error=f"Text not found in {path}. Ensure that the text matches exactly (incl. whitespace).",
                 )
 
             # Count occurrences
@@ -290,7 +290,7 @@ class EditFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Text kommt {occurrences}x vor. Setze replace_all=true oder verwende eindeutigeren Text.",
+                    error=f"Text occurs {occurrences}x. Set replace_all=true or use more specific text.",
                 )
 
             # Perform replacement
@@ -307,7 +307,7 @@ class EditFileTool(Tool):
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Datei bearbeitet: {path} ({replaced} Ersetzung(en))",
+                output=f"File edited: {path} ({replaced} replacement(s))",
                 metadata={
                     "path": path,
                     "replacements": replaced,
@@ -320,7 +320,7 @@ class EditFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Bearbeiten: {str(e)}",
+                error=f"Error editing: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -333,24 +333,24 @@ class ListDirectoryTool(Tool):
     """List contents of a directory."""
 
     name = "list_directory"
-    description = "Listet Dateien und Ordner in einem Verzeichnis auf."
+    description = "Lists files and folders in a directory."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zum Verzeichnis (relativ zum Workspace, '.' für Root)",
+            description="Path to directory (relative to workspace, '.' for root)",
         ),
         ToolParameter(
             name="recursive",
             type="boolean",
-            description="Rekursiv auflisten (default: false)",
+            description="List recursively (default: false)",
             required=False,
             default=False,
         ),
         ToolParameter(
             name="pattern",
             type="string",
-            description="Glob-Pattern zum Filtern (z.B. '*.py')",
+            description="Glob pattern for filtering (e.g. '*.py')",
             required=False,
         ),
     ]
@@ -369,14 +369,14 @@ class ListDirectoryTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Verzeichnis nicht gefunden: {path}",
+                    error=f"Directory not found: {path}",
                 )
 
             if not full_path.is_dir():
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Pfad ist kein Verzeichnis: {path}",
+                    error=f"Path is not a directory: {path}",
                 )
 
             entries = []
@@ -405,13 +405,13 @@ class ListDirectoryTool(Tool):
                     entries.append(f"📄 {rel_path} ({size_str})")
 
             if not entries:
-                output = f"Verzeichnis {path} ist leer"
+                output = f"Directory {path} is empty"
                 if pattern:
                     output += f" (Filter: {pattern})"
             else:
                 output = "\n".join(entries[:100])  # Limit output
                 if len(entries) > 100:
-                    output += f"\n... und {len(entries) - 100} weitere"
+                    output += f"\n... and {len(entries) - 100} more"
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -427,7 +427,7 @@ class ListDirectoryTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Auflisten: {str(e)}",
+                error=f"Error listing: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -447,24 +447,24 @@ class FindFilesTool(Tool):
     """Find files by name or content."""
 
     name = "find_files"
-    description = "Sucht Dateien nach Name (Glob) oder Inhalt (Regex)."
+    description = "Searches files by name (Glob) or content (Regex)."
     parameters = [
         ToolParameter(
             name="pattern",
             type="string",
-            description="Glob-Pattern für Dateinamen (z.B. '*.py', '**/*test*.py')",
+            description="Glob pattern for filenames (e.g. '*.py', '**/*test*.py')",
             required=False,
         ),
         ToolParameter(
             name="content",
             type="string",
-            description="Regex-Pattern für Dateiinhalt",
+            description="Regex pattern for file content",
             required=False,
         ),
         ToolParameter(
             name="path",
             type="string",
-            description="Startverzeichnis (default: Workspace-Root)",
+            description="Start directory (default: workspace root)",
             required=False,
             default=".",
         ),
@@ -482,7 +482,7 @@ class FindFilesTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error="Mindestens pattern oder content muss angegeben werden.",
+                    error="At least pattern or content must be specified.",
                 )
 
             full_path = self._resolve_path(path)
@@ -491,7 +491,7 @@ class FindFilesTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Verzeichnis nicht gefunden: {path}",
+                    error=f"Directory not found: {path}",
                 )
 
             results = []
@@ -531,7 +531,7 @@ class FindFilesTool(Tool):
                     results.append(f"📄 {rel_path}")
 
             if not results:
-                output = "Keine Dateien gefunden"
+                output = "No files found"
             else:
                 output = "\n".join(results[:50])
                 if len(results) > 50:
@@ -551,13 +551,13 @@ class FindFilesTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Ungültiger Regex: {str(e)}",
+                error=f"Invalid regex: {str(e)}",
             )
         except Exception as e:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler bei Suche: {str(e)}",
+                error=f"Error searching: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -570,12 +570,12 @@ class DeleteFileTool(Tool):
     """Delete a file."""
 
     name = "delete_file"
-    description = "Löscht eine Datei. Kann keine Verzeichnisse löschen."
+    description = "Deletes a file. Cannot delete directories."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zur Datei (relativ zum Workspace)",
+            description="Path to file (relative to workspace)",
         ),
     ]
 
@@ -598,7 +598,7 @@ class DeleteFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Operation blockiert: {reason}",
+                error=f"Operation blocked: {reason}",
             )
 
         try:
@@ -608,14 +608,14 @@ class DeleteFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei nicht gefunden: {path}",
+                    error=f"File not found: {path}",
                 )
 
             if full_path.is_dir():
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Pfad ist ein Verzeichnis, keine Datei: {path}. Nutze delete_directory für Verzeichnisse.",
+                    error=f"Path is a directory, not a file: {path}. Use delete_directory for directories.",
                 )
 
             # Delete the file
@@ -632,7 +632,7 @@ class DeleteFileTool(Tool):
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Datei gelöscht: {path}",
+                output=f"File deleted: {path}",
                 metadata={"path": path, "deleted": True},
             )
 
@@ -648,7 +648,7 @@ class DeleteFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Keine Berechtigung zum Löschen: {path}",
+                error=f"No permission to delete: {path}",
             )
         except Exception as e:
             audit.log(
@@ -662,7 +662,7 @@ class DeleteFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Löschen: {str(e)}",
+                error=f"Error deleting: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -675,22 +675,22 @@ class AppendFileTool(Tool):
     """Append content to a file."""
 
     name = "append_file"
-    description = "Hängt Inhalt an eine bestehende Datei an. Erstellt die Datei falls nicht vorhanden."
+    description = "Appends content to an existing file. Creates the file if it does not exist."
     parameters = [
         ToolParameter(
             name="path",
             type="string",
-            description="Pfad zur Datei (relativ zum Workspace)",
+            description="Path to file (relative to workspace)",
         ),
         ToolParameter(
             name="content",
             type="string",
-            description="Inhalt der angehängt werden soll",
+            description="Content to be appended",
         ),
         ToolParameter(
             name="newline",
             type="boolean",
-            description="Fügt Zeilenumbruch vor dem Content ein (default: true)",
+            description="Inserts line break before content (default: true)",
             required=False,
             default=True,
         ),
@@ -723,7 +723,7 @@ class AppendFileTool(Tool):
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Inhalt an {path} angehängt ({len(content)} Zeichen)",
+                output=f"Content appended to {path} ({len(content)} characters)",
                 metadata={"path": path, "appended_chars": len(content)},
             )
 
@@ -731,7 +731,7 @@ class AppendFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Anhängen: {str(e)}",
+                error=f"Error appending: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -744,7 +744,7 @@ class CreateDirectoryTool(Tool):
     """Create a directory."""
 
     name = "create_directory"
-    description = "Erstellt ein Verzeichnis (inklusive aller Elternverzeichnisse)."
+    description = "Creates a directory (including all parent directories)."
     parameters = [
         ToolParameter(
             name="path",
@@ -762,21 +762,21 @@ class CreateDirectoryTool(Tool):
                 if full_path.is_dir():
                     return ToolResult(
                         status=ToolResultStatus.SUCCESS,
-                        output=f"Verzeichnis existiert bereits: {path}",
+                        output=f"Directory already exists: {path}",
                         metadata={"path": path, "created": False},
                     )
                 else:
                     return ToolResult(
                         status=ToolResultStatus.ERROR,
                         output=None,
-                        error=f"Pfad existiert bereits als Datei: {path}",
+                        error=f"Path already exists as a file: {path}",
                     )
 
             full_path.mkdir(parents=True, exist_ok=True)
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Verzeichnis erstellt: {path}",
+                output=f"Directory created: {path}",
                 metadata={"path": path, "created": True},
             )
 
@@ -784,13 +784,13 @@ class CreateDirectoryTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Keine Berechtigung zum Erstellen: {path}",
+                error=f"No permission to create: {path}",
             )
         except Exception as e:
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Erstellen: {str(e)}",
+                error=f"Error creating: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:
@@ -803,22 +803,22 @@ class MoveFileTool(Tool):
     """Move or rename a file or directory."""
 
     name = "move_file"
-    description = "Verschiebt oder benennt eine Datei/Verzeichnis um."
+    description = "Moves or renames a file/directory."
     parameters = [
         ToolParameter(
             name="source",
             type="string",
-            description="Quellpfad (relativ zum Workspace)",
+            description="Source path (relative to workspace)",
         ),
         ToolParameter(
             name="destination",
             type="string",
-            description="Zielpfad (relativ zum Workspace)",
+            description="Destination path (relative to workspace)",
         ),
         ToolParameter(
             name="overwrite",
             type="boolean",
-            description="Überschreiben falls Ziel existiert (default: false)",
+            description="Overwrite if destination exists (default: false)",
             required=False,
             default=False,
         ),
@@ -850,7 +850,7 @@ class MoveFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Operation blockiert: {reason}",
+                error=f"Operation blocked: {reason}",
             )
 
         try:
@@ -861,14 +861,14 @@ class MoveFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Quelle nicht gefunden: {source}",
+                    error=f"Source not found: {source}",
                 )
 
             if dest_path.exists() and not overwrite:
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Ziel existiert bereits: {destination}. Setze overwrite=true zum Überschreiben.",
+                    error=f"Destination already exists: {destination}. Set overwrite=true to overwrite.",
                 )
 
             # Create parent directories if needed
@@ -884,7 +884,7 @@ class MoveFileTool(Tool):
             shutil.move(str(source_path), str(dest_path))
 
             is_rename = source_path.parent == dest_path.parent
-            action = "umbenannt" if is_rename else "verschoben"
+            action = "renamed" if is_rename else "moved"
 
             # Log successful move
             audit.log(
@@ -897,7 +897,7 @@ class MoveFileTool(Tool):
 
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=f"Datei {action}: {source} → {destination}",
+                output=f"File {action}: {source} → {destination}",
                 metadata={
                     "source": source,
                     "destination": destination,
@@ -917,7 +917,7 @@ class MoveFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Keine Berechtigung für Operation: {source} → {destination}",
+                error=f"No permission for operation: {source} → {destination}",
             )
         except Exception as e:
             audit.log(
@@ -931,7 +931,7 @@ class MoveFileTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Fehler beim Verschieben: {str(e)}",
+                error=f"Error moving: {str(e)}",
             )
 
     def _resolve_path(self, path: str) -> Path:

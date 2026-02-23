@@ -3,15 +3,15 @@ import yaml
 import pytest
 from pathlib import Path
 from unittest.mock import patch
-from core.global_config import GlobalConfigManager
+from core.genetics import Genetics
 
 class TestGlobalConfig:
     @pytest.fixture
     def config_manager(self, tmp_path):
-        """Fixture for GlobalConfigManager with mocked home dir."""
+        """Fixture for Genetics with mocked home dir."""
         with patch.object(Path, "home", return_value=tmp_path):
             with patch.dict(os.environ, {}, clear=True):
-                manager = GlobalConfigManager()
+                manager = Genetics()
                 yield manager
 
     def test_ensure_config_exists(self, config_manager):

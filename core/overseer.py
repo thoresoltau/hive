@@ -10,7 +10,7 @@ from threading import Lock
 logger = logging.getLogger(__name__)
 
 
-class ActivityLogger:
+class Overseer:
     """
     Logs all agent and tool activity to .hive/activity.jsonl.
     
@@ -22,7 +22,7 @@ class ActivityLogger:
     - Workflow events
     """
     
-    _instance: Optional["ActivityLogger"] = None
+    _instance: Optional["Overseer"] = None
     _lock = Lock()
     
     def __new__(cls, workspace_path: Optional[str] = None, _reset: bool = False):
@@ -286,6 +286,6 @@ class ActivityLogger:
         return events[-n:]
 
 
-def get_activity_logger(workspace_path: Optional[str] = None) -> ActivityLogger:
+def get_overseer(workspace_path: Optional[str] = None) -> Overseer:
     """Get or create the activity logger singleton."""
-    return ActivityLogger(workspace_path)
+    return Overseer(workspace_path)

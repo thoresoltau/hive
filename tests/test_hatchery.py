@@ -2,12 +2,12 @@
 
 import pytest
 
-from core.backlog import BacklogManager
+from core.hatchery import Hatchery
 from core.models import TicketStatus, Priority
 
 
-class TestBacklogManager:
-    """Tests for BacklogManager."""
+class TestHatchery:
+    """Tests for Hatchery."""
 
     @pytest.fixture
     def backlog_dir(self, temp_dir):
@@ -19,7 +19,7 @@ class TestBacklogManager:
 
     @pytest.fixture
     def manager(self, backlog_dir):
-        return BacklogManager(backlog_dir)
+        return Hatchery(backlog_dir)
 
     async def test_initialize_creates_backlog(self, manager, backlog_dir):
         """Should create backlog structure on initialize."""

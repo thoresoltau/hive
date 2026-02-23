@@ -4,14 +4,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 from agents.observer import ObserverAgent
 from core.models import AgentMessage, MessageType
-from core.message_bus import MessageBus
+from core.link import Link
 
 @pytest.mark.asyncio
 async def test_observer_monitoring():
     """Test that observer monitors messages and alerts on errors."""
 
     # 1. Setup
-    bus = MessageBus()
+    bus = Link()
     # Mock broadcast to capture alerts
     bus.broadcast = AsyncMock()
 

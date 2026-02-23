@@ -1,27 +1,27 @@
 import json
 import pytest
 from unittest.mock import patch
-from core.activity_logger import ActivityLogger, get_activity_logger
+from core.overseer import Overseer, get_overseer
 
-class TestActivityLogger:
+class TestOverseer:
     @pytest.fixture
     def logger(self, tmp_path):
-        """Fixture for a fresh ActivityLogger instance."""
-        ActivityLogger.reset()
-        logger = ActivityLogger(workspace_path=str(tmp_path), _reset=True)
+        """Fixture for a fresh Overseer instance."""
+        Overseer.reset()
+        logger = Overseer(workspace_path=str(tmp_path), _reset=True)
         yield logger
-        ActivityLogger.reset()
+        Overseer.reset()
 
     def test_singleton_pattern(self, tmp_path):
-        """Test that ActivityLogger behaves as a singleton."""
-        ActivityLogger.reset()
-        logger1 = ActivityLogger(workspace_path=str(tmp_path))
-        logger2 = ActivityLogger(workspace_path=str(tmp_path))
+        """Test that Overseer behaves as a singleton."""
+        Overseer.reset()
+        logger1 = Overseer(workspace_path=str(tmp_path))
+        logger2 = Overseer(workspace_path=str(tmp_path))
         
         assert logger1 is logger2
         
         # Test helper function
-        logger3 = get_activity_logger(str(tmp_path))
+        logger3 = get_overseer(str(tmp_path))
         assert logger3 is logger1
 
     def test_log_creation(self, logger):

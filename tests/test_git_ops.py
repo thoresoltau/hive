@@ -163,7 +163,7 @@ class TestGitDiffTool:
         result = await tool.execute()
         
         assert result.success
-        assert "Keine Änderungen" in result.output["diff"]
+        assert "No changes" in result.output["diff"]
 
     async def test_diff_with_changes(self, tool, temp_git_repo):
         """Should show diff for modified files."""

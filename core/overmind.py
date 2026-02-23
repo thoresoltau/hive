@@ -1,4 +1,4 @@
-"""Orchestrator - coordinates all agents and manages workflow."""
+"""Overmind - coordinates all agents and manages workflow."""
 
 import asyncio
 from pathlib import Path
@@ -8,8 +8,8 @@ import os
 import yaml
 from dotenv import load_dotenv
 
-from .backlog import BacklogManager
-from .message_bus import MessageBus
+from .hatchery import Hatchery
+from .link import Link
 from .models import AgentMessage, AgentResponse, MessageType, TicketStatus
 from .context import ContextManager
 from .mcp import MCPClientManager
@@ -17,9 +17,9 @@ from .logging import get_logger
 from tools.base import ToolRegistry
 
 
-class Orchestrator:
+class Overmind:
     """
-    Main orchestrator for the Hive Agent Swarm.
+    Main overmind for the Hive Agent Swarm.
 
     Responsibilities:
     - Initialize all agents
@@ -30,41 +30,41 @@ class Orchestrator:
 
     def __init__(
         self,
-        backlog_path: str | Path,
+        hatchery_path: str | Path,
         config_path: str | Path,
         codebase_path: Optional[str | Path] = None,
     ):
         load_dotenv()
 
-        self.backlog_path = Path(backlog_path)
+        self.hatchery_path = Path(hatchery_path)
         self.config_path = Path(config_path)
         self.codebase_path = Path(codebase_path) if codebase_path else None
 
         # Initialize core components
-        from .global_config import GlobalConfigManager
-        self.global_config = GlobalConfigManager()
-        self.global_config.load()
+        from .genetics import Genetics
+        self.genetics = Genetics()
+        self.genetics.load()
 
         # Determine active keys for warning only
         has_keys = any([
-            self.global_config.config.openai_api_key,
-            self.global_config.config.gemini_api_key,
-            self.global_config.config.anthropic_api_key
+            self.genetics.config.openai_api_key,
+            self.genetics.config.gemini_api_key,
+            self.genetics.config.anthropic_api_key
         ])
 
         if not has_keys:
-            self.log.warning("Keine LLM API Keys gefunden. Bitte in ~/.hive/config.yaml oder als Environment Variable setzen.")
+            self.log.warning("No LLM API keys found. Please set them in ~/.hive/config.yaml or as environment variables.")
 
         # Inject keys into env so litellm can find them automatically
-        if self.global_config.config.openai_api_key:
-            os.environ["OPENAI_API_KEY"] = self.global_config.config.openai_api_key
-        if self.global_config.config.gemini_api_key:
-            os.environ["GEMINI_API_KEY"] = self.global_config.config.gemini_api_key
-        if self.global_config.config.anthropic_api_key:
-            os.environ["ANTHROPIC_API_KEY"] = self.global_config.config.anthropic_api_key
+        if self.genetics.config.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = self.genetics.config.openai_api_key
+        if self.genetics.config.gemini_api_key:
+            os.environ["GEMINI_API_KEY"] = self.genetics.config.gemini_api_key
+        if self.genetics.config.anthropic_api_key:
+            os.environ["ANTHROPIC_API_KEY"] = self.genetics.config.anthropic_api_key
 
-        self.backlog = BacklogManager(self.backlog_path)
-        self.message_bus = MessageBus()
+        self.hatchery = Hatchery(self.hatchery_path)
+        self.link = Link()
         self.context_manager = ContextManager(self.codebase_path) if self.codebase_path else None
 
         # Agents will be initialized later
@@ -85,8 +85,8 @@ class Orchestrator:
         with open(self.config_path) as f:
             self._config = yaml.safe_load(f)
 
-        # Initialize backlog
-        await self.backlog.initialize()
+        # Initialize hatchery
+        await self.hatchery.initialize()
 
         # Load project context if available
         if self.context_manager and self.context_manager.is_initialized:
@@ -98,7 +98,7 @@ class Orchestrator:
         # Log initialization
         tools_count = len(self.tools.get_all()) if self.tools else 0
         self.log.workflow_start(
-            project=str(self.codebase_path or self.backlog_path.parent),
+            project=str(self.codebase_path or self.hatchery_path.parent),
             agents=list(self.agents.keys()),
             tools_count=tools_count,
         )
@@ -140,7 +140,7 @@ class Orchestrator:
                 connected = sum(1 for v in results.values() if v)
                 if connected > 0:
                     mcp_tools = await self.tools.register_mcp_tools(self.mcp_manager)
-                    self.log.debug(f"MCP: {connected} Server, {mcp_tools} Tools geladen")
+                    self.log.debug(f"MCP: {connected} Server, {mcp_tools} mutations extracted")
 
         for agent_key, agent_class in agent_classes.items():
             config = agent_configs.get(agent_key, {})
@@ -150,12 +150,12 @@ class Orchestrator:
 
             kwargs = {
                 "name": agent_key,
-                "backlog": self.backlog,
-                "message_bus": self.message_bus,
+                "hatchery": self.hatchery,
+                "link": self.link,
                 "system_prompt": system_prompt,
                 "model": config.get("model", "${MODEL_NAME}") \
-                    .replace("${MODEL_NAME}", self.global_config.config.model_name) \
-                    .replace("${MODEL_FAST}", self.global_config.config.model_name_fast),
+                    .replace("${MODEL_NAME}", self.genetics.config.model_name) \
+                    .replace("${MODEL_FAST}", self.genetics.config.model_name_fast),
                 "temperature": config.get("temperature", 0.3),
             }
 
@@ -183,10 +183,10 @@ class Orchestrator:
         scrum_master = self.agents["scrum_master"]
 
         initial_message = AgentMessage(
-            from_agent="orchestrator",
+            from_agent="overmind",
             to_agent="scrum_master",
             message_type=MessageType.TASK,
-            content="Führe den nächsten Workflow-Schritt aus.",
+            content="Execute the next workflow step.",
             context={"task_type": "orchestrate"},
         )
 
@@ -206,7 +206,7 @@ class Orchestrator:
             next_agent = self.agents.get(next_agent_name)
 
             if not next_agent:
-                self.log.warning(f"Agent '{next_agent_name}' nicht gefunden")
+                self.log.warning(f"Agent '{next_agent_name}' not found")
                 break
 
             # LOOP DETECTION
@@ -222,9 +222,9 @@ class Orchestrator:
                 # Create a synthetic response to inform the user about the loop
                 return AgentResponse(
                     success=False,
-                    agent="orchestrator",
+                    agent="overmind",
                     action_taken="loop_detected",
-                    message=f"Abbruch: Unendlicher Loop erkannt zwischen {current_response.agent} und {next_agent_name}.",
+                    message=f"Abort: Infinite loop detected between {current_response.agent} und {next_agent_name}.",
                     ticket_id=current_response.ticket_id
                 )
 
@@ -287,7 +287,7 @@ class Orchestrator:
         self._running = True
         cycle = 0
 
-        self.log.info("Starte Workflow...")
+        self.log.info("Starting workflow...")
 
         while self._running and cycle < max_cycles:
             cycle += 1
@@ -304,13 +304,13 @@ class Orchestrator:
 
                     # Check if we're done (no more work)
                     if response.action_taken == "no_tickets_available":
-                        self.log.info("Keine weiteren Tickets zu bearbeiten")
+                        self.log.info("No more tickets to process")
                         break
                 else:
-                    self.log.warning("Keine Antwort von Agents")
+                    self.log.warning("No response from agents")
 
             except Exception as e:
-                self.log.error(f"Fehler in Zyklus {cycle}", exception=e)
+                self.log.error(f"Error in cycle {cycle}", exception=e)
                 if self.log.verbose:
                     import traceback
                     traceback.print_exc()
@@ -319,13 +319,13 @@ class Orchestrator:
             await asyncio.sleep(1)
 
         # Print final summary
-        summary = self.backlog.get_sprint_summary()
+        summary = self.hatchery.get_sprint_summary()
         self.log.workflow_finish(summary)
 
     async def stop(self) -> None:
         """Stop the orchestration loop."""
         self._running = False
-        await self.message_bus.stop()
+        await self.link.stop()
 
         # Disconnect MCP servers
         if self.mcp_manager:
@@ -333,13 +333,13 @@ class Orchestrator:
 
     async def process_ticket(self, ticket_id: str) -> AgentResponse:
         """Process a specific ticket through the workflow."""
-        ticket = self.backlog.get_ticket(ticket_id)
+        ticket = self.hatchery.get_ticket(ticket_id)
         if not ticket:
             return AgentResponse(
                 success=False,
-                agent="orchestrator",
+                agent="overmind",
                 action_taken="ticket_not_found",
-                message=f"Ticket {ticket_id} nicht gefunden.",
+                message=f"Ticket {ticket_id} not found.",
             )
 
         # Determine starting point based on ticket status
@@ -361,10 +361,10 @@ class Orchestrator:
         else:
             return AgentResponse(
                 success=True,
-                agent="orchestrator",
+                agent="overmind",
                 ticket_id=ticket_id,
                 action_taken="ticket_already_done",
-                message=f"Ticket {ticket_id} ist bereits {ticket.status.value}.",
+                message=f"Ticket {ticket_id} is already {ticket.status.value}.",
             )
 
         print(f"\n🎫 Processing {ticket_id}: {task}")
@@ -373,7 +373,7 @@ class Orchestrator:
         # Start processing
         agent = self.agents[start_agent]
         message = AgentMessage(
-            from_agent="orchestrator",
+            from_agent="overmind",
             to_agent=start_agent,
             message_type=MessageType.TASK,
             ticket_id=ticket_id,
@@ -422,7 +422,7 @@ class Orchestrator:
 
         # Ask PO
         msg = AgentMessage(
-            from_agent="orchestrator",
+            from_agent="overmind",
             to_agent="product_owner",
             message_type=MessageType.QUESTION,
             ticket_id=response.ticket_id,
@@ -446,7 +446,7 @@ class Orchestrator:
         if not reply:
             return False
 
-        is_approved = "approve" in reply.message.lower() or "bestätig" in reply.message.lower()
+        is_approved = "approve" in reply.message.lower() or "approv" in reply.message.lower()
 
         if is_approved:
             print("✅ ADR Approved by Product Owner.")

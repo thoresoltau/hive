@@ -13,8 +13,8 @@ from core.models import (
     AgentResponse,
     MessageType,
 )
-from core.backlog import BacklogManager
-from core.message_bus import MessageBus
+from core.hatchery import Hatchery
+from core.link import Link
 from core.logging import get_logger
 from tools.base import ToolRegistry, ToolResult
 
@@ -34,8 +34,8 @@ class BaseAgent(ABC):
     def __init__(
         self,
         name: str,
-        backlog: BacklogManager,
-        message_bus: MessageBus,
+        backlog: Hatchery,
+        message_bus: Link,
         system_prompt: str,
         model: str = "gpt-4o",
         temperature: float = 1.0,
@@ -69,7 +69,7 @@ class BaseAgent(ABC):
         parts = [self._role_prompt]
 
         if self._project_context:
-            parts.append(f"\n\n## Projektkontext\n{self._project_context}")
+            parts.append(f"\n\n## Project context\n{self._project_context}")
 
         parts.append(self._stability_protocol)
 
@@ -116,7 +116,7 @@ class BaseAgent(ABC):
             ticket = self.backlog.get_ticket(message.ticket_id)
 
         response = await self._call_llm(
-            user_message=f"Frage von {message.from_agent}: {message.content}",
+            user_message=f"Question from {message.from_agent}: {message.content}",
             ticket=ticket,
         )
 
@@ -142,7 +142,7 @@ class BaseAgent(ABC):
             agent=self.name,
             ticket_id=message.ticket_id,
             action_taken="update_acknowledged",
-            message=f"Update von {message.from_agent} erhalten.",
+            message=f"Update received from {message.from_agent}.",
         )
 
     async def _call_llm(
@@ -168,7 +168,7 @@ class BaseAgent(ABC):
         if ticket:
             history = self.message_bus.get_conversation_context(ticket.id)
             if history and "Keine vorherigen" not in history:
-                context_parts.append(f"## Bisherige Kommunikation\n{history}")
+                context_parts.append(f"## Previous communication\n{history}")
 
         # Combine context with user message
         full_message = user_message
@@ -199,7 +199,7 @@ class BaseAgent(ABC):
     ) -> dict:
         """Call LLM and expect JSON response."""
         response = await self._call_llm(
-            user_message=user_message + "\n\nAntworte ausschließlich mit validem JSON.",
+            user_message=user_message + "\n\nAnswer exclusively with valid JSON.",
             ticket=ticket,
             additional_context=additional_context,
         )
@@ -242,8 +242,8 @@ class BaseAgent(ABC):
             context_parts.append(additional_context)
         if ticket:
             history = self.message_bus.get_conversation_context(ticket.id)
-            if history and "Keine vorherigen" not in history:
-                context_parts.append(f"## Bisherige Kommunikation\n{history}")
+            if history and "No previous" not in history:
+                context_parts.append(f"## Previous communication\n{history}")
 
         full_message = user_message
         if context_parts:
@@ -287,7 +287,7 @@ class BaseAgent(ABC):
                         result = ToolResult(
                             status=ToolResultStatus.ERROR,
                             output=None,
-                            error=f"Ungültige Argumente: {validation_error}",
+                            error=f"Invalid arguments: {validation_error}",
                         )
                         tool_results.append({
                             "tool": tool_name,
@@ -355,7 +355,7 @@ class BaseAgent(ABC):
                     })
                     result_content = result.to_context()
                 else:
-                    result_content = f"Tool '{tool_name}' nicht gefunden."
+                    result_content = f"Tool '{tool_name}' not found."
                     tool_results.append({
                         "tool": tool_name,
                         "args": tool_args,
@@ -370,7 +370,7 @@ class BaseAgent(ABC):
                 })
 
         # Max iterations reached
-        return "Max tool iterations erreicht.", tool_results
+        return "Max tool iterations reached.", tool_results
 
     async def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
         """Execute a specific tool directly."""
@@ -380,7 +380,7 @@ class BaseAgent(ABC):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error="Keine Tools verfügbar.",
+                error="No tools available.",
             )
 
         tool = self.tools.get(tool_name)
@@ -388,7 +388,7 @@ class BaseAgent(ABC):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Tool '{tool_name}' nicht gefunden.",
+                error=f"Tool '{tool_name}' not found.",
             )
 
         return await tool.execute(**kwargs)
@@ -397,11 +397,11 @@ class BaseAgent(ABC):
         """Format ticket for LLM context."""
         parts = [
             f"## Ticket: {ticket.id}",
-            f"**Titel:** {ticket.title}",
-            f"**Typ:** {ticket.type.value}",
+            f"**Title:** {ticket.title}",
+            f"**Type:** {ticket.type.value}",
             f"**Status:** {ticket.status.value}",
-            f"**Priorität:** {ticket.priority.value}",
-            f"\n### Beschreibung\n{ticket.description}",
+            f"**Priority:** {ticket.priority.value}",
+            f"\n### Description\n{ticket.description}",
         ]
 
         if ticket.acceptance_criteria:
@@ -411,21 +411,21 @@ class BaseAgent(ABC):
 
         if ticket.user_story:
             parts.append("\n### User Story")
-            parts.append(f"Als {ticket.user_story.as_a}")
-            parts.append(f"möchte ich {ticket.user_story.i_want}")
-            parts.append(f"damit {ticket.user_story.so_that}")
+            parts.append(f"As a {ticket.user_story.as_a}")
+            parts.append(f"I want to {ticket.user_story.i_want}")
+            parts.append(f"so that {ticket.user_story.so_that}")
 
         if ticket.technical_context.affected_areas:
-            parts.append("\n### Technischer Kontext")
-            parts.append(f"**Betroffene Bereiche:** {', '.join(ticket.technical_context.affected_areas)}")
+            parts.append("\n### Technical context")
+            parts.append(f"**Affected areas:** {', '.join(ticket.technical_context.affected_areas)}")
 
         if ticket.technical_context.related_files:
-            parts.append("\n**Relevante Dateien:**")
+            parts.append("\n**Relevant files:**")
             for rf in ticket.technical_context.related_files:
                 parts.append(f"- `{rf.path}`: {rf.reason}")
 
         if ticket.technical_context.implementation_notes:
-            parts.append(f"\n**Implementierungshinweise:**\n{ticket.technical_context.implementation_notes}")
+            parts.append(f"\n**Implementation notes:**\n{ticket.technical_context.implementation_notes}")
 
         return "\n".join(parts)
 
@@ -482,16 +482,16 @@ class BaseAgent(ABC):
 
     async def _ensure_feature_branch(self, branch_name: str) -> bool:
         """
-        Stelle sicher, dass der Feature-Branch existiert und aktiv ist.
+        Ensure the feature branch exists and is active.
 
-        Versucht zuerst den Branch zu erstellen. Falls er bereits existiert,
-        wird automatisch zu diesem gewechselt.
+        Tries to create the branch first. If it already exists,
+        it switches to it automatically.
 
         Args:
-            branch_name: Name des Feature-Branches
+            branch_name: Name of the feature branch
 
         Returns:
-            True wenn Branch erstellt oder gewechselt wurde, False bei Fehler.
+            True if Branch created or switched, False on error.
         """
         if not self.tools:
             return False
@@ -504,7 +504,7 @@ class BaseAgent(ABC):
         result = await git_branch.execute(branch_name=branch_name, action="create")
 
         if result.success:
-            self.log.info(f"Feature-Branch '{branch_name}' erstellt")
+            self.log.info(f"Feature-Branch '{branch_name}' created")
             return True
 
         # Branch existiert bereits → wechseln
@@ -512,10 +512,10 @@ class BaseAgent(ABC):
         if "existiert bereits" in error_str or "already exists" in error_str:
             switch_result = await git_branch.execute(branch_name=branch_name, action="switch")
             if switch_result.success:
-                self.log.info(f"Zu Branch '{branch_name}' gewechselt")
+                self.log.info(f"Zu Branch '{branch_name}' switched")
                 return True
 
-        self.log.warning(f"Branch-Operation fehlgeschlagen: {result.error}")
+        self.log.warning(f"Branch operation failed: {result.error}")
         return False
 
     async def _check_git_status(self) -> dict:
@@ -529,11 +529,11 @@ class BaseAgent(ABC):
         - untracked: list of untracked files
         """
         if not self.tools:
-            return {"has_changes": False, "error": "Keine Tools verfügbar"}
+            return {"has_changes": False, "error": "No tools available"}
 
         git_status = self.tools.get("git_status")
         if not git_status:
-            return {"has_changes": False, "error": "git_status Tool nicht verfügbar"}
+            return {"has_changes": False, "error": "git_status tool not available"}
 
         try:
             result = await git_status.execute()
@@ -547,7 +547,7 @@ class BaseAgent(ABC):
                 }
             return {"has_changes": False, "error": result.error}
         except Exception as e:
-            logging.error(f"Fehler bei Git-Status-Prüfung: {e}")
+            logging.error(f"Error in Git status check: {e}")
             return {"has_changes": False, "error": str(e)}
 
     async def _rollback_changes(self) -> dict:
@@ -558,7 +558,7 @@ class BaseAgent(ABC):
         Returns dict with success status and message.
         """
         if not self.tools:
-            return {"success": False, "message": "Keine Tools verfügbar"}
+            return {"success": False, "message": "No tools available"}
 
         git_reset = self.tools.get("git_reset")
         self.tools.get("git_checkout_file")
@@ -570,10 +570,10 @@ class BaseAgent(ABC):
             try:
                 reset_result = await git_reset.execute(mode="mixed", target="HEAD")
                 if reset_result.success:
-                    results.append("Staging zurückgesetzt")
-                    self.log.debug("Git staging zurückgesetzt via git reset --mixed HEAD")
+                    results.append("Staging reset")
+                    self.log.debug("Git staging reset via git reset --mixed HEAD")
             except Exception as e:
-                self.log.warning(f"Git reset fehlgeschlagen: {e}")
+                self.log.warning(f"Git reset failed: {e}")
 
         # Then try to discard changes via run_command (git checkout .)
         run_command = self.tools.get("run_command")
@@ -585,22 +585,22 @@ class BaseAgent(ABC):
                     timeout=30,
                 )
                 if checkout_result.success:
-                    results.append("Änderungen verworfen")
-                    self.log.debug("Uncommitted changes verworfen via git checkout .")
+                    results.append("Changes discarded")
+                    self.log.debug("Uncommitted changes discarded via git checkout .")
                 else:
-                    self.log.warning(f"Git checkout fehlgeschlagen: {checkout_result.error}")
+                    self.log.warning(f"Git checkout failed: {checkout_result.error}")
             except Exception as e:
-                self.log.warning(f"Git checkout Exception: {e}")
+                self.log.warning(f"Git checkout exception: {e}")
 
         if results:
             return {
                 "success": True,
-                "message": f"Rollback durchgeführt: {', '.join(results)}",
+                "message": f"Rollback performed: {', '.join(results)}",
             }
 
         return {
             "success": False,
-            "message": "Kein Rollback-Tool verfügbar",
+            "message": "No rollback tool available",
         }
 
     async def _safe_execute_with_rollback(
@@ -629,19 +629,19 @@ class BaseAgent(ABC):
             return result, False
 
         except Exception as e:
-            self.log.error(f"Kritischer Fehler bei {operation_name}", exception=e)
+            self.log.error(f"Critical error at {operation_name}", exception=e)
 
             # Check if we have new uncommitted changes that should be rolled back
             post_status = await self._check_git_status()
 
             if post_status.get("has_changes") and not pre_status.get("has_changes"):
-                self.log.warning(f"Führe Rollback durch nach Fehler in {operation_name}")
+                self.log.warning(f"Performing rollback after error in {operation_name}")
                 rollback_result = await self._rollback_changes()
 
                 if rollback_result["success"]:
-                    self.log.info(f"Rollback erfolgreich: {rollback_result['message']}")
+                    self.log.info(f"Rollback successful: {rollback_result['message']}")
                 else:
-                    self.log.error(f"Rollback fehlgeschlagen: {rollback_result['message']}")
+                    self.log.error(f"Rollback failed: {rollback_result['message']}")
 
                 return None, True
 

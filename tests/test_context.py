@@ -90,7 +90,7 @@ class TestTechStack:
         
         context = stack.to_context()
         
-        assert "Nicht spezifiziert" in context
+        assert "Not specified" in context
 
 
 class TestContextManager:

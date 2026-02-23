@@ -46,13 +46,13 @@ class GitStatusTool(Tool):
     """Tool to check git repository status."""
 
     name = "git_status"
-    description = "Zeigt den aktuellen Git-Status des Repositories (geänderte, neue, gelöschte Dateien)"
+    description = "Shows the current git status of the repository (changed, new, deleted files)"
 
     parameters = [
         ToolParameter(
             name="short",
             type="boolean",
-            description="Kurze Ausgabe (nur Dateinamen mit Status-Codes)",
+            description="Short output (only filenames with status codes)",
             required=False,
         ),
     ]
@@ -84,31 +84,31 @@ class GitBranchTool(Tool):
     """Tool to manage git branches."""
 
     name = "git_branch"
-    description = "Verwaltet Git-Branches: erstellen, wechseln, auflisten oder löschen"
+    description = "Manages git branches: create, switch, list or delete"
 
     parameters = [
         ToolParameter(
             name="branch_name",
             type="string",
-            description="Name des Branches",
+            description="Name of the branch",
             required=False,
         ),
         ToolParameter(
             name="action",
             type="string",
-            description="Aktion: 'create', 'switch', 'list', 'delete'",
+            description="Action: 'create', 'switch', 'list', 'delete'",
             required=False,
         ),
         ToolParameter(
             name="base_branch",
             type="string",
-            description="Basis-Branch für neuen Branch (default: aktueller Branch)",
+            description="Base branch for new branch (default: current branch)",
             required=False,
         ),
         ToolParameter(
             name="force",
             type="boolean",
-            description="Force-Delete auch bei ungemergten Änderungen",
+            description="Force delete even with unmerged changes",
             required=False,
             default=False,
         ),
@@ -146,7 +146,7 @@ class GitBranchTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error="branch_name ist erforderlich",
+                error="branch_name is required",
             )
 
         if action == "create":
@@ -163,7 +163,7 @@ class GitBranchTool(Tool):
                     return ToolResult(
                         status=ToolResultStatus.ERROR,
                         output=None,
-                        error=f"Branch '{branch_name}' existiert bereits. Nutze action='switch' zum Wechseln.",
+                        error=f"Branch '{branch_name}' already exists. Use action='switch' to switch.",
                     )
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
@@ -176,7 +176,7 @@ class GitBranchTool(Tool):
                 output={
                     "action": "created",
                     "branch": branch_name,
-                    "message": f"Branch '{branch_name}' erstellt und aktiviert",
+                    "message": f"Branch '{branch_name}' created and activated",
                 },
             )
 
@@ -198,7 +198,7 @@ class GitBranchTool(Tool):
                 output={
                     "action": "switched",
                     "branch": branch_name,
-                    "message": f"Gewechselt zu Branch '{branch_name}'",
+                    "message": f"Switched to branch '{branch_name}'",
                 },
             )
 
@@ -209,7 +209,7 @@ class GitBranchTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Branch '{branch_name}' ist geschützt und kann nicht gelöscht werden.",
+                    error=f"Branch '{branch_name}' is protected and cannot be deleted.",
                 )
 
             # Check if we're on the branch to delete
@@ -221,7 +221,7 @@ class GitBranchTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Kann aktuellen Branch '{branch_name}' nicht löschen. Wechsle zuerst zu einem anderen Branch.",
+                    error=f"Cannot delete current branch '{branch_name}'. Switch to another branch first.",
                 )
 
             # Delete branch
@@ -236,7 +236,7 @@ class GitBranchTool(Tool):
                     return ToolResult(
                         status=ToolResultStatus.ERROR,
                         output=None,
-                        error=f"Branch '{branch_name}' hat ungemergte Änderungen. Nutze force=true zum Löschen.",
+                        error=f"Branch '{branch_name}' has unmerged changes. Use force=true to delete.",
                     )
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
@@ -249,14 +249,14 @@ class GitBranchTool(Tool):
                 output={
                     "action": "deleted",
                     "branch": branch_name,
-                    "message": f"Branch '{branch_name}' gelöscht",
+                    "message": f"Branch '{branch_name}' deleted",
                 },
             )
 
         return ToolResult(
             status=ToolResultStatus.ERROR,
             output=None,
-            error=f"Unbekannte Aktion: {action}. Nutze 'create', 'switch', 'delete', oder 'list'.",
+            error=f"Unknown action: {action}. Use 'create', 'switch', 'delete', or 'list'.",
         )
 
 
@@ -264,25 +264,25 @@ class GitCommitTool(Tool):
     """Tool to commit changes."""
 
     name = "git_commit"
-    description = "Staged Änderungen committen. Optional können Dateien vorher gestaged werden."
+    description = "Commit staged changes. Optionally, files can be staged beforehand."
 
     parameters = [
         ToolParameter(
             name="message",
             type="string",
-            description="Commit-Message (kurz und aussagekräftig)",
+            description="Commit message (short and descriptive)",
             required=True,
         ),
         ToolParameter(
             name="files",
             type="array",
-            description="Liste von Dateien die gestaged werden sollen (optional, default: alle geänderten)",
+            description="List of files to be staged (optional, default: all changed)",
             required=False,
         ),
         ToolParameter(
             name="ticket_id",
             type="string",
-            description="Ticket-ID für die Commit-Message (z.B. 'HIVE-001')",
+            description="Ticket ID for the commit message (e.g. 'HIVE-001')",
             required=False,
         ),
     ]
@@ -300,7 +300,7 @@ class GitCommitTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error="Commit-Message ist erforderlich",
+                error="Commit-Message is required",
             )
 
         # Stage files
@@ -314,7 +314,7 @@ class GitCommitTool(Tool):
                     return ToolResult(
                         status=ToolResultStatus.ERROR,
                         output=None,
-                        error=f"Fehler beim Stagen von '{file}': {stderr}",
+                        error=f"Error staging '{file}': {stderr}",
                     )
         else:
             # Stage all changes
@@ -326,7 +326,7 @@ class GitCommitTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Fehler beim Stagen: {stderr}",
+                    error=f"Error staging: {stderr}",
                 )
 
         # Format commit message with ticket ID
@@ -347,10 +347,10 @@ class GitCommitTool(Tool):
                     status=ToolResultStatus.SUCCESS,
                     output={
                         "committed": False,
-                        "message": "Keine Änderungen zum Committen",
+                        "message": "No changes to commit",
                     },
                 )
-            error_msg = stderr.strip() if stderr.strip() else stdout.strip() if stdout.strip() else "Git commit fehlgeschlagen (unbekannter Fehler)"
+            error_msg = stderr.strip() if stderr.strip() else stdout.strip() if stdout.strip() else "Git commit failed (unknown error)"
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
@@ -377,19 +377,19 @@ class GitDiffTool(Tool):
     """Tool to show git diff."""
 
     name = "git_diff"
-    description = "Zeigt Änderungen (Diff) für Dateien oder das gesamte Repository"
+    description = "Shows changes (diff) for files or the entire repository"
 
     parameters = [
         ToolParameter(
             name="file_path",
             type="string",
-            description="Optionaler Pfad zu einer spezifischen Datei",
+            description="Optional path to a specific file",
             required=False,
         ),
         ToolParameter(
             name="staged",
             type="boolean",
-            description="Zeige nur gestagete Änderungen",
+            description="Show only staged changes",
             required=False,
         ),
     ]
@@ -421,7 +421,7 @@ class GitDiffTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei nicht gefunden: {file_path}",
+                    error=f"File not found: {file_path}",
                 )
             args.append(file_path)
 
@@ -437,7 +437,7 @@ class GitDiffTool(Tool):
         if not stdout.strip():
             return ToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output={"diff": "Keine Änderungen"},
+                output={"diff": "No changes"},
             )
 
         # Truncate if too long
@@ -456,25 +456,25 @@ class GitLogTool(Tool):
     """Tool to show git log."""
 
     name = "git_log"
-    description = "Zeigt die Commit-Historie"
+    description = "Shows the commit history"
 
     parameters = [
         ToolParameter(
             name="count",
             type="integer",
-            description="Anzahl der anzuzeigenden Commits (default: 10)",
+            description="Number of commits to display (default: 10)",
             required=False,
         ),
         ToolParameter(
             name="oneline",
             type="boolean",
-            description="Kompakte Darstellung (eine Zeile pro Commit)",
+            description="Compact display (one line per commit)",
             required=False,
         ),
         ToolParameter(
             name="file_path",
             type="string",
-            description="Zeige nur Commits für diese Datei",
+            description="Show only commits for this file",
             required=False,
         ),
     ]
@@ -509,7 +509,7 @@ class GitLogTool(Tool):
 
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
-            output={"log": stdout.strip() or "Keine Commits gefunden"},
+            output={"log": stdout.strip() or "No commits found"},
         )
 
 
@@ -517,7 +517,7 @@ class GitCurrentBranchTool(Tool):
     """Tool to get current branch name."""
 
     name = "git_current_branch"
-    description = "Zeigt den Namen des aktuellen Branches"
+    description = "Shows the name of the current branch"
 
     parameters = []
 
@@ -547,33 +547,33 @@ class GitPushTool(Tool):
     """Tool to push commits to remote."""
 
     name = "git_push"
-    description = "Pusht lokale Commits zum Remote-Repository"
+    description = "Pushes local commits to the remote repository"
 
     parameters = [
         ToolParameter(
             name="remote",
             type="string",
-            description="Remote Name (default: origin)",
+            description="Remote name (default: origin)",
             required=False,
             default="origin",
         ),
         ToolParameter(
             name="branch",
             type="string",
-            description="Branch Name (default: aktueller Branch)",
+            description="Branch name (default: current branch)",
             required=False,
         ),
         ToolParameter(
             name="set_upstream",
             type="boolean",
-            description="Setzt Upstream für neuen Branch (-u flag)",
+            description="Sets upstream for new branch (-u flag)",
             required=False,
             default=False,
         ),
         ToolParameter(
             name="force",
             type="boolean",
-            description="Force Push (VORSICHT: überschreibt Remote-History)",
+            description="Force push (CAUTION: overwrites remote history)",
             required=False,
             default=False,
         ),
@@ -614,7 +614,7 @@ class GitPushTool(Tool):
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
-                "message": f"Erfolgreich nach {remote} gepusht",
+                "message": f"Successfully pushed to {remote}",
                 "details": stdout.strip() or stderr.strip(),
             },
         )
@@ -624,26 +624,26 @@ class GitPullTool(Tool):
     """Tool to pull changes from remote."""
 
     name = "git_pull"
-    description = "Holt Änderungen vom Remote-Repository"
+    description = "Fetches changes from the remote repository"
 
     parameters = [
         ToolParameter(
             name="remote",
             type="string",
-            description="Remote Name (default: origin)",
+            description="Remote name (default: origin)",
             required=False,
             default="origin",
         ),
         ToolParameter(
             name="branch",
             type="string",
-            description="Branch Name (optional)",
+            description="Branch name (optional)",
             required=False,
         ),
         ToolParameter(
             name="rebase",
             type="boolean",
-            description="Rebase statt Merge",
+            description="Rebase instead of merge",
             required=False,
             default=False,
         ),
@@ -675,7 +675,7 @@ class GitPullTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Merge-Konflikte beim Pull: {stderr or stdout}",
+                    error=f"Merge conflicts during pull: {stderr or stdout}",
                 )
             return ToolResult(
                 status=ToolResultStatus.ERROR,
@@ -686,7 +686,7 @@ class GitPullTool(Tool):
         return ToolResult(
             status=ToolResultStatus.SUCCESS,
             output={
-                "message": f"Erfolgreich von {remote} gepullt",
+                "message": f"Successfully pulled from {remote}",
                 "details": stdout.strip(),
             },
         )
@@ -696,20 +696,20 @@ class GitResetTool(Tool):
     """Tool to reset changes."""
 
     name = "git_reset"
-    description = "Setzt Änderungen zurück (soft/mixed/hard)"
+    description = "Resets changes (soft/mixed/hard)"
 
     parameters = [
         ToolParameter(
             name="mode",
             type="string",
-            description="Reset-Modus: 'soft' (behält Änderungen staged), 'mixed' (default, behält Änderungen unstaged), 'hard' (VORSICHT: verwirft alle Änderungen)",
+            description="Reset mode: 'soft' (keeps changes staged), 'mixed' (default, keeps changes unstaged), 'hard' (CAUTION: discards all changes)",
             required=False,
             default="mixed",
         ),
         ToolParameter(
             name="target",
             type="string",
-            description="Ziel-Commit (default: HEAD)",
+            description="Target commit (default: HEAD)",
             required=False,
             default="HEAD",
         ),
@@ -728,7 +728,7 @@ class GitResetTool(Tool):
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 output=None,
-                error=f"Ungültiger Modus: {mode}. Erlaubt: {', '.join(valid_modes)}",
+                error=f"Invalid mode: {mode}. Allowed: {', '.join(valid_modes)}",
             )
 
         args = ["reset", f"--{mode}", target]
@@ -747,7 +747,7 @@ class GitResetTool(Tool):
             output={
                 "mode": mode,
                 "target": target,
-                "message": f"Reset ({mode}) auf {target} durchgeführt",
+                "message": f"Reset ({mode}) auf {target} performed",
             },
         )
 
@@ -756,19 +756,19 @@ class GitCheckoutFileTool(Tool):
     """Tool to checkout specific files."""
 
     name = "git_checkout_file"
-    description = "Setzt einzelne Dateien auf den Stand eines Commits zurück"
+    description = "Resets individual files to the state of a commit"
 
     parameters = [
         ToolParameter(
             name="file_path",
             type="string",
-            description="Pfad zur Datei (relativ zum Repository)",
+            description="Path to file (relative to repository)",
             required=True,
         ),
         ToolParameter(
             name="ref",
             type="string",
-            description="Commit/Branch/Tag Referenz (default: HEAD)",
+            description="Commit/branch/tag reference (default: HEAD)",
             required=False,
             default="HEAD",
         ),
@@ -791,7 +791,7 @@ class GitCheckoutFileTool(Tool):
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
                     output=None,
-                    error=f"Datei '{file_path}' existiert nicht in {ref}",
+                    error=f"Datei '{file_path}' does not exist in {ref}",
                 )
             return ToolResult(
                 status=ToolResultStatus.ERROR,

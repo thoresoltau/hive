@@ -9,8 +9,8 @@ from .models import (
     AgentResponse,
     MessageType,
 )
-from .backlog import BacklogManager
-from .message_bus import MessageBus
+from .hatchery import Hatchery
+from .link import Link
 from .context import ContextManager, ProjectConfig
 
 __all__ = [
@@ -21,8 +21,8 @@ __all__ = [
     "AgentMessage",
     "AgentResponse",
     "MessageType",
-    "BacklogManager",
-    "MessageBus",
+    "Hatchery",
+    "Link",
     "ContextManager",
     "ProjectConfig",
 ]

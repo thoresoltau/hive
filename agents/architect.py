@@ -52,7 +52,7 @@ class ArchitectAgent(BaseAgent):
                 success=False,
                 agent=self.name,
                 action_taken="analysis_failed",
-                message="Keine Ticket-ID angegeben.",
+                message="No ticket ID specified.",
             )
 
         ticket = self.backlog.get_ticket(ticket_id)
@@ -62,7 +62,7 @@ class ArchitectAgent(BaseAgent):
                 agent=self.name,
                 ticket_id=ticket_id,
                 action_taken="analysis_failed",
-                message=f"Ticket {ticket_id} nicht gefunden.",
+                message=f"Ticket {ticket_id} not found.",
             )
 
         # Get codebase structure if available
@@ -78,31 +78,31 @@ class ArchitectAgent(BaseAgent):
 
             {additional_context}
 
-            Erstelle:
-            1. Liste der betroffenen Bereiche
-            2. Benötigte Dependencies
-            3. Relevante existierende Dateien mit Begründung
-            4. Implementierungshinweise
-            5. Subtasks für die Entwickler
-            6. Komplexitätsschätzung
+            Create:
+            1. List of affected areas
+            2. Required Dependencies
+            3. Relevant existing files with Reasoning
+            4. Implementation hints
+            5. Subtasks for developers
+            6. Complexity estimation
 
-            Antworte mit JSON:
+            Answer with JSON:
             {{
                 "affected_areas": ["area1", "area2"],
                 "dependencies": ["dep1", "dep2"],
                 "related_files": [
-                    {{"path": "src/...", "reason": "Begründung"}},
+                    {{"path": "src/...", "reason": "Reasoning"}},
                     ...
                 ],
-                "implementation_notes": "Detaillierte technische Hinweise",
+                "implementation_notes": "Detailed technical notes",
                 "subtasks": [
-                    {{"id": "001-1", "description": "Subtask Beschreibung"}},
+                    {{"id": "001-1", "description": "Subtask description"}},
                     ...
                 ],
                 "complexity": "low|medium|high",
                 "story_points": 1-13,
                 "risks": ["Risiko 1", "Risiko 2"],
-                "architectural_notes": "Wichtige Architektur-Entscheidungen"
+                "architectural_notes": "Important architectural decisions"
             }}
             """,
             ticket=ticket,
@@ -136,9 +136,9 @@ class ArchitectAgent(BaseAgent):
 
         # Add comment
         risks = analysis.get("risks", [])
-        comment = f"Technische Analyse abgeschlossen. Komplexität: {analysis.get('complexity')}."
+        comment = f"Technical analysis completed. Complexity: {analysis.get('complexity')}."
         if risks:
-            comment += f" Risiken: {', '.join(risks)}."
+            comment += f" Risks: {', '.join(risks)}."
 
         # ADR Trigger Logik
         arch_notes = analysis.get("architectural_notes", "")
@@ -151,7 +151,7 @@ class ArchitectAgent(BaseAgent):
                 consequences="TBD",
                 ticket_id=ticket.id
             )
-            comment += f"\n\n🛑 **ADR Proposed**: `{adr_file}`. Bitte um Review!"
+            comment += f"\n\n🛑 **ADR Proposed**: `{adr_file}`. Please review!"
 
         elif arch_notes:
             comment += f" {arch_notes}"
@@ -186,7 +186,7 @@ class ArchitectAgent(BaseAgent):
             action_taken="adr_proposed" if "Proposed" in comment else "technical_analysis_complete",
             result=analysis,
             next_agent=next_agent,
-            message=f"Technische Analyse für {ticket_id} abgeschlossen. Empfohlener Entwickler: {next_agent}",
+            message=f"Technical analysis for {ticket_id} completed. Recommended developer: {next_agent}",
         )
 
     async def _review_implementation(self, ticket_id: Optional[str]) -> AgentResponse:
@@ -196,7 +196,7 @@ class ArchitectAgent(BaseAgent):
                 success=False,
                 agent=self.name,
                 action_taken="review_failed",
-                message="Keine Ticket-ID angegeben.",
+                message="No ticket ID specified.",
             )
 
         ticket = self.backlog.get_ticket(ticket_id)
@@ -206,7 +206,7 @@ class ArchitectAgent(BaseAgent):
                 agent=self.name,
                 ticket_id=ticket_id,
                 action_taken="review_failed",
-                message=f"Ticket {ticket_id} nicht gefunden.",
+                message=f"Ticket {ticket_id} not found.",
             )
 
         # Get implementation details
@@ -225,26 +225,26 @@ class ArchitectAgent(BaseAgent):
 
             review_response, tool_results = await self._call_llm_with_tools(
                 user_message=f"""
-                Führe ein ECHTES Code-Review für dieses Ticket durch.
+                Perform a REAL code review for this ticket.
 
-                ## Implementierungsdetails
+                ## Implementation details
                 - Branch: {implementation.branch}
                 - Commits: {implementation.commits}
                 - Subtasks: {[st.model_dump() for st in implementation.subtasks]}
-                - Relevante Dateien: {[rf.path for rf in related_files]}
+                - Relevant files: {[rf.path for rf in related_files]}
 
-                ## Deine Aufgabe:
-                1. Nutze git_diff um die Änderungen zu sehen
-                2. Nutze read_file um die geänderten Dateien zu lesen
-                3. Prüfe den CODE auf:
-                   - Korrektheit der Implementierung
-                   - Code-Qualität und Lesbarkeit
-                   - Best Practices (Naming, Struktur, etc.)
-                   - Potenzielle Bugs oder Security-Issues
-                   - Vollständigkeit (erfüllt die Acceptance Criteria?)
+                ## Your task:
+                1. Use git_diff to see the changes
+                2. Use read_file to read the modified files
+                3. Check the CODE for:
+                   - Correctness of the implementation
+                   - Code quality and readability
+                   - Best Practices (Naming, Structure, etc.)
+                   - Potential Bugs or Security Issues
+                   - Completeness (fulfills the Acceptance Criteria?)
 
-                ## Am Ende:
-                Gib dein Review-Ergebnis als JSON zurück:
+                ## At the end:
+                Return your review result as JSON:
                 {{
                     "approved": true/false,
                     "quality_score": 1-10,
@@ -252,7 +252,7 @@ class ArchitectAgent(BaseAgent):
                         {{"severity": "info|warning|error", "message": "...", "file": "...", "line": null}}
                     ],
                     "suggestions": ["..."],
-                    "summary": "Zusammenfassung"
+                    "summary": "Summary"
                 }}
                 """,
                 ticket=ticket,
@@ -266,18 +266,18 @@ class ArchitectAgent(BaseAgent):
                 # Generate structured review based on what was read
                 review = await self._call_llm_json(
                     user_message=f"""
-                    Basierend auf deinem Code-Review, gib das Ergebnis als JSON zurück:
+                    Based on your code review, return the result as JSON:
 
-                    Deine bisherige Analyse:
+                    Your previous analysis:
                     {review_response[:2000]}
 
-                    Antworte NUR mit JSON:
+                    Answer with JSON:
                     {{
                         "approved": true/false,
                         "quality_score": 1-10,
                         "findings": [{{"severity": "info|warning|error", "message": "...", "file": "..."}}],
                         "suggestions": ["..."],
-                        "summary": "Kurze Zusammenfassung"
+                        "summary": "Kurze Summary"
                     }}
                     """,
                     ticket=ticket,
@@ -287,22 +287,22 @@ class ArchitectAgent(BaseAgent):
                 review = {
                     "approved": False,
                     "quality_score": 5,
-                    "findings": [{"severity": "warning", "message": "Keine Dateien gelesen", "file": None}],
-                    "suggestions": ["Relevante Dateien müssen gelesen werden"],
-                    "summary": "Review konnte nicht vollständig durchgeführt werden",
+                    "findings": [{"severity": "warning", "message": "No files read", "file": None}],
+                    "suggestions": ["Relevant files must be read"],
+                    "summary": "Review could not be fully performed",
                 }
         else:
             # Fallback without tools: review based on metadata only
             review = await self._call_llm_json(
                 user_message=f"""
-                Führe ein Code-Review für dieses Ticket durch (ohne Datei-Zugriff).
+                Perform a code review for this ticket (without file access).
 
-                ## Implementierungsdetails
+                ## Implementation details
                 - Branch: {implementation.branch}
                 - Commits: {implementation.commits}
                 - Subtasks: {[st.model_dump() for st in implementation.subtasks]}
 
-                Antworte mit JSON:
+                Answer with JSON:
                 {{
                     "approved": true/false,
                     "quality_score": 1-10,
@@ -318,13 +318,13 @@ class ArchitectAgent(BaseAgent):
 
         if approved:
             ticket.status = TicketStatus.REVIEW
-            ticket.add_comment(self.name, f"✅ Code-Review bestanden. Score: {review.get('quality_score')}/10")
+            ticket.add_comment(self.name, f"✅ Code review passed. Score: {review.get('quality_score')}/10")
         else:
             findings = review.get("findings", [])
             errors = [f for f in findings if f.get("severity") == "error"]
             ticket.add_comment(
                 self.name,
-                f"❌ Code-Review: {len(errors)} Fehler gefunden. Nacharbeit erforderlich."
+                f"❌ Code review: {len(errors)} errors found. Rework required."
             )
 
         await self.backlog.save_ticket(ticket)
@@ -346,7 +346,7 @@ class ArchitectAgent(BaseAgent):
                 success=False,
                 agent=self.name,
                 action_taken="estimation_failed",
-                message="Keine Ticket-ID angegeben.",
+                message="No ticket ID specified.",
             )
 
         ticket = self.backlog.get_ticket(ticket_id)
@@ -356,23 +356,23 @@ class ArchitectAgent(BaseAgent):
                 agent=self.name,
                 ticket_id=ticket_id,
                 action_taken="estimation_failed",
-                message=f"Ticket {ticket_id} nicht gefunden.",
+                message=f"Ticket {ticket_id} not found.",
             )
 
         estimation = await self._call_llm_json(
             user_message="""
-            Schätze die Komplexität und den Aufwand für dieses Ticket.
+            Estimate the complexity and effort for this ticket.
 
-            Berücksichtige:
-            - Akzeptanzkriterien
-            - Technischen Kontext
-            - Potenzielle Risiken
+            Consider:
+            - Acceptance criteria
+            - Technical context
+            - Potential risks
 
-            Antworte mit JSON:
+            Answer with JSON:
             {
                 "complexity": "low|medium|high",
                 "story_points": 1-13,
-                "reasoning": "Begründung der Schätzung",
+                "reasoning": "Reasoning of the estimation",
                 "confidence": "low|medium|high"
             }
             """,
@@ -391,13 +391,13 @@ class ArchitectAgent(BaseAgent):
             ticket_id=ticket_id,
             action_taken="estimation_complete",
             result=estimation,
-            message=f"Schätzung: {estimation.get('story_points')} SP, {estimation.get('complexity')} Komplexität",
+            message=f"Estimation: {estimation.get('story_points')} SP, {estimation.get('complexity')} complexity",
         )
 
     async def _get_codebase_structure(self) -> str:
         """Get codebase structure for context."""
         if not self.codebase_path or not self.codebase_path.exists():
-            return "Keine Codebase verfügbar."
+            return "No codebase available."
 
         # Simple tree structure
         structure = []
@@ -442,7 +442,7 @@ class ArchitectAgent(BaseAgent):
         # Fallback to content-based routing
         if "review" in message.content.lower():
             return await self._review_implementation(message.ticket_id)
-        elif "schätz" in message.content.lower() or "estimate" in message.content.lower():
+        elif "estimate" in message.content.lower() or "estimation" in message.content.lower():
             return await self._estimate_ticket(message.ticket_id)
         else:
             return await self._analyze_and_plan(message.ticket_id, message.content)

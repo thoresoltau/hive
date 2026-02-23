@@ -2,23 +2,23 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from core.orchestrator import Orchestrator
+from core.overmind import Overmind
 from core.models import AgentResponse
 
 @pytest.fixture
 def mock_orchestrator():
     """Create a mocked orchestrator."""
-    with patch("core.orchestrator.BacklogManager"), \
-         patch("core.global_config.GlobalConfigManager") as mock_gcm, \
-         patch("core.orchestrator.AsyncOpenAI", create=True), \
-         patch("core.orchestrator.MessageBus"), \
-         patch("core.orchestrator.ContextManager"), \
-         patch("core.orchestrator.get_logger"):
+    with patch("core.overmind.Hatchery"), \
+         patch("core.genetics.Genetics") as mock_gcm, \
+         patch("core.overmind.AsyncOpenAI", create=True), \
+         patch("core.overmind.Link"), \
+         patch("core.overmind.ContextManager"), \
+         patch("core.overmind.get_logger"):
 
         mock_gcm.return_value.config.openai_api_key = "dummy_key"
         mock_gcm.return_value.config.gemini_api_key = "dummy_key"
         mock_gcm.return_value.config.anthropic_api_key = "dummy_key"
-        orch = Orchestrator(backlog_path=".", config_path="config.yaml")
+        orch = Overmind(hatchery_path=".", config_path="config.yaml")
         orch.agents = {}
         return orch
 
@@ -71,7 +71,7 @@ async def test_loop_detection(mock_orchestrator):
     # Assert loop was detected
     assert result is not None
     assert result.action_taken == "loop_detected"
-    assert "Unendlicher Loop" in result.message
+    assert "Infinite loop" in result.message
 
     # Debug info
     print(f"Result action: {result.action_taken}")

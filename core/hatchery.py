@@ -10,18 +10,18 @@ import aiofiles
 from .models import Ticket, TicketStatus, Priority
 
 
-class BacklogManager:
+class Hatchery:
     """Manages ticket lifecycle and persistence."""
 
-    def __init__(self, backlog_path: str | Path):
-        self.backlog_path = Path(backlog_path)
-        self.tickets_dir = self.backlog_path / "tickets"
-        self.index_file = self.backlog_path / "index.yaml"
+    def __init__(self, hatchery_path: str | Path):
+        self.hatchery_path = Path(hatchery_path)
+        self.tickets_dir = self.hatchery_path / "tickets"
+        self.index_file = self.hatchery_path / "index.yaml"
         self._tickets: dict[str, Ticket] = {}
         self._index: dict = {}
 
     async def initialize(self) -> None:
-        """Initialize backlog directory structure."""
+        """Initialize hatchery directory structure."""
         self.tickets_dir.mkdir(parents=True, exist_ok=True)
         
         # Load index if exists (for sprint metadata), otherwise create default
@@ -120,8 +120,8 @@ class BacklogManager:
 
     def get_next_ticket_for_refinement(self) -> Optional[Ticket]:
         """Get the next ticket that needs refinement."""
-        backlog_tickets = self.get_tickets_by_status(TicketStatus.BACKLOG)
-        if not backlog_tickets:
+        hatchery_tickets = self.get_tickets_by_status(TicketStatus.BACKLOG)
+        if not hatchery_tickets:
             return None
         
         # Sort by priority
@@ -131,8 +131,8 @@ class BacklogManager:
             Priority.MEDIUM: 2,
             Priority.LOW: 3,
         }
-        backlog_tickets.sort(key=lambda t: priority_order[t.priority])
-        return backlog_tickets[0]
+        hatchery_tickets.sort(key=lambda t: priority_order[t.priority])
+        return hatchery_tickets[0]
 
     def get_next_ticket_for_work(self) -> Optional[Ticket]:
         """Get the next ticket ready for implementation."""

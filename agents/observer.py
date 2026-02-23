@@ -84,7 +84,7 @@ class ObserverAgent(BaseAgent):
         """Broadcast an alert."""
         self.log.warning(f"OBSERVER ALERT: {warning}")
         
-        # Send to Orchestrator or Broadcast?
+        # Send to Overmind or Broadcast?
         await self.message_bus.broadcast(
             from_agent=self.name,
             content=warning,

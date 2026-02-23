@@ -2,24 +2,24 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from core.orchestrator import Orchestrator
+from core.overmind import Overmind
 from core.models import AgentResponse, MessageType
 
 @pytest.fixture
 def mock_orchestrator():
     """Create a mocked orchestrator."""
-    with patch("core.orchestrator.BacklogManager"), \
-         patch("core.global_config.GlobalConfigManager") as mock_gcm, \
-         patch("core.orchestrator.AsyncOpenAI", create=True), \
-         patch("core.orchestrator.MessageBus"), \
-         patch("core.orchestrator.ContextManager"), \
-         patch("core.orchestrator.get_logger"), \
-         patch("core.orchestrator.Orchestrator._initialize_agents"): # Prevent real agent init
+    with patch("core.overmind.Hatchery"), \
+         patch("core.genetics.Genetics") as mock_gcm, \
+         patch("core.overmind.AsyncOpenAI", create=True), \
+         patch("core.overmind.Link"), \
+         patch("core.overmind.ContextManager"), \
+         patch("core.overmind.get_logger"), \
+         patch("core.overmind.Overmind._initialize_agents"): # Prevent real agent init
 
         mock_gcm.return_value.config.openai_api_key = "dummy_key"
         mock_gcm.return_value.config.gemini_api_key = "dummy_key"
         mock_gcm.return_value.config.anthropic_api_key = "dummy_key"
-        orch = Orchestrator(backlog_path=".", config_path="config.yaml")
+        orch = Overmind(hatchery_path=".", config_path="config.yaml")
         orch.agents = {}
         orch.tools = None # Explicitly set tools to None to avoid validation errors if accessed
         return orch
@@ -70,7 +70,7 @@ async def test_adr_consensus_flow(mock_orchestrator):
     agent_dev.handle_message.return_value = resp_dev
 
     # Run Single Cycle
-    # Since we mocked agents, we can run the real Orchestrator.run_single_cycle logic
+    # Since we mocked agents, we can run the real Overmind.run_single_cycle logic
     # We rely on the internal loop of run_single_cycle
 
     await mock_orchestrator.run_single_cycle()

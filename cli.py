@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-Hive Agent Swarm - A digital Scrum team powered by AI agents.
+Hive Swarm - A digital Zerg swarm, controlled by AI agents.
 
 Usage:
-    hive init                  # Initialize Hive in current directory
-    hive create-ticket         # Create a new ticket
-    hive run                   # Run the agent swarm
-    hive process TICKET-ID     # Process a specific ticket
-    hive status                # Show backlog status
+    hive infest                # Settle the Zerg swarm in the current directory
+    hive hatch                 # Hatch a new larva/ticket
+    hive swarm                 # Unleash the swarm
+    hive swarm TICKET-ID      # Direct the swarm to a specific target (ticket)
+    hive pulse                 # Feel the pulse of the swarm (backlog status)
 """
 
 import asyncio
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from core.orchestrator import Orchestrator
-    from core.backlog import BacklogManager
+    from core.overmind import Overmind
+    from core.hatchery import Hatchery
     from core.context import ContextManager
 
 from pathlib import Path
@@ -24,7 +24,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 
-app = typer.Typer(help="Hive Agent Swarm - Digital Scrum Team powered by AI agents")
+app = typer.Typer(help="Hive Swarm - A digital Zerg swarm, controlled by AI agents")
 console = Console()
 
 # Package directory (where default configs are stored)
@@ -54,7 +54,7 @@ def get_project_path() -> Path:
             return parent
 
     raise HiveNotInitializedError(
-        "Kein Hive-Projekt gefunden. Führe 'hive init' aus."
+        "No Hive project found. Run 'hive init'."
     )
 
 
@@ -90,22 +90,22 @@ def require_initialized(func):
 
 # === Lazy imports to avoid circular dependencies ===
 
-def get_orchestrator() -> "Orchestrator":
+def get_overmind() -> "Overmind":
     """Create orchestrator instance for current project."""
-    from core.orchestrator import Orchestrator
+    from core.overmind import Overmind
 
     project_path = get_project_path()
-    return Orchestrator(
-        backlog_path=get_tickets_dir().parent,  # .hive/
+    return Overmind(
+        hatchery_path=get_tickets_dir().parent,  # .hive/
         config_path=get_config_path(),
         codebase_path=str(project_path),
     )
 
 
-def get_backlog_manager() -> "BacklogManager":
+def get_hatchery() -> "Hatchery":
     """Get backlog manager for current project."""
-    from core.backlog import BacklogManager
-    return BacklogManager(get_hive_dir())
+    from core.hatchery import Hatchery
+    return Hatchery(get_hive_dir())
 
 
 def get_context_manager() -> "ContextManager":
@@ -116,14 +116,14 @@ def get_context_manager() -> "ContextManager":
 
 # === Commands ===
 
-@app.command()
-def init(
-    force: bool = typer.Option(False, "--force", "-f", help="Bestehende Konfiguration überschreiben"),
+@app.command(name="infest")
+def infest(
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing configuration"),
 ):
     """
-    Initialisiert Hive im aktuellen Verzeichnis.
+    Infests (initializes) the current directory for the Hive.
 
-    Erstellt .hive/ mit Projektkonfiguration.
+    Creates .hive/ with project configuration.
     """
     from core.context import ContextManager
 
@@ -131,18 +131,18 @@ def init(
     hive_dir = project_path / ".hive"
 
     if hive_dir.exists() and not force:
-        console.print(f"[yellow]⚠ Hive bereits initialisiert in {project_path}[/yellow]")
-        console.print("Nutze --force zum Überschreiben.")
+        console.print(f"[yellow]⚠ Hive already initialized in {project_path}[/yellow]")
+        console.print("Use --force to overwrite.")
         raise typer.Exit(1)
 
     # Get project info interactively
     project_name = project_path.name
-    project_name = Prompt.ask("Projektname", default=project_name)
-    description = Prompt.ask("Beschreibung", default="")
+    project_name = Prompt.ask("Project name", default=project_name)
+    description = Prompt.ask("Description", default="")
 
     # Get tech stack
-    console.print("\n[bold]Tech Stack[/bold] (komma-separiert, leer für Auto-Detect)")
-    languages = Prompt.ask("Sprachen", default="")
+    console.print("\n[bold]Tech Stack[/bold] (comma-separated, empty for auto-detect)")
+    languages = Prompt.ask("Languages", default="")
     frameworks = Prompt.ask("Frameworks", default="")
 
     tech_stack = {}
@@ -164,58 +164,88 @@ def init(
         tickets_dir = hive_dir / "tickets"
         tickets_dir.mkdir(parents=True, exist_ok=True)
 
-        console.print("\n[green]✓ Hive initialisiert![/green]")
-        console.print(f"  Projekt: {project_path}")
+        console.print("\n[green]✓ Directory infested! The Hive is growing.[/green]")
+        console.print(f"  Project: {project_path}")
         console.print(f"  Config: {hive_dir / 'project.yaml'}")
         console.print(f"  Tickets: {tickets_dir}")
 
         if config.tech_stack.languages:
-            console.print("\n[bold]Erkannt:[/bold]")
-            console.print(f"  Sprachen: {', '.join(config.tech_stack.languages)}")
+            console.print("\n[bold]Detected:[/bold]")
+            console.print(f"  Languages: {', '.join(config.tech_stack.languages)}")
 
     asyncio.run(_init())
 
 
-@app.command()
-@require_initialized
-def run(
-    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximale Mind-Loop-Zyklen"),
+@app.command(name="init", hidden=True)
+def init_alias(
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing configuration"),
 ):
-    """Startet den Agent Swarm (verarbeitet Backlog)."""
+    """Alias for infest."""
+    infest(force=force)
+
+
+@app.command(name="swarm")
+@require_initialized
+def swarm(
+    ticket_id: Optional[str] = typer.Argument(None, help="Optional Ticket ID (e.g. HIVE-001)"),
+    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximum mutation cycles"),
+):
+    """Starts the swarm (processes Hatchery backlog or a specific ticket)."""
     async def _run():
-        orchestrator = get_orchestrator()
+        orchestrator = get_overmind()
         await orchestrator.initialize()
-        await orchestrator.run(max_cycles=max_cycles)
+        if ticket_id:
+            response = await orchestrator.process_ticket(ticket_id)
+            console.print(f"\n[bold]Result:[/bold] {response.action_taken}")
+            console.print(f"[bold]Message:[/bold] {response.message}")
+        else:
+            await orchestrator.run(max_cycles=max_cycles)
 
     project = get_project_path()
-    console.print(f"[blue]🐝 Starting Hive on {project}[/blue]\n")
+    if ticket_id:
+        console.print(f"[blue]🐝 Swarm is attacking (Ticket {ticket_id}) auf {project}[/blue]\n")
+    else:
+        console.print(f"[blue]🐝 Swarm awakens (backlog) on {project}[/blue]\n")
     asyncio.run(_run())
 
 
-@app.command()
+@app.command(name="run", hidden=True)
+@require_initialized
+def run(max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximum cycles")):
+    """Alias for swarm."""
+    swarm(ticket_id=None, max_cycles=max_cycles)
+
+
+@app.command(name="process", hidden=True)
 @require_initialized
 def process(
-    ticket_id: str = typer.Argument(..., help="Ticket ID to process"),
-    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximale Mind-Loop-Zyklen"),
+    ticket_id: str = typer.Argument(..., help="Ticket ID"),
+    max_cycles: int = typer.Option(20, "--max-cycles", "-n", help="Maximum cycles"),
 ):
-    """Verarbeitet ein einzelnes spezifisches Ticket."""
-    async def _process():
-        orchestrator = get_orchestrator()
-        await orchestrator.initialize()
-        response = await orchestrator.process_ticket(ticket_id)
-
-        console.print(f"\n[bold]Result:[/bold] {response.action_taken}")
-        console.print(f"[bold]Message:[/bold] {response.message}")
-
-    asyncio.run(_process())
+    """Alias for swarm <ticket_id>."""
+    swarm(ticket_id=ticket_id, max_cycles=max_cycles)
 
 
-@app.command("create-ticket")
+@app.command(name="hibernate")
 @require_initialized
-def create_ticket():
-    """Erstellt ein neues Ticket interaktiv."""
+def hibernate():
+    """Puts the swarm into hibernation (Stop)."""
+    console.print("[blue]💤 The Overmind is sleeping. Swarm is hibernating.[/blue]")
 
-    console.print("\n[bold blue]Neues Ticket erstellen[/bold blue]\n")
+
+@app.command(name="stop", hidden=True)
+@require_initialized
+def stop():
+    """Alias for hibernate."""
+    hibernate()
+
+
+@app.command("hatch")
+@require_initialized
+def hatch():
+    """Hatches a new ticket/larva interactively."""
+
+    console.print("\n[bold blue]Hatch a new larva/ticket[/bold blue]\n")
 
     # Auto-generate ticket ID
     tickets_dir = get_tickets_dir()
@@ -232,15 +262,15 @@ def create_ticket():
     default_id = f"{prefix}-{next_num:03d}"
 
     ticket_id = Prompt.ask("Ticket ID", default=default_id)
-    title = Prompt.ask("Titel")
+    title = Prompt.ask("Title")
 
-    console.print("\nTypen: feature, bug, refactor, chore, spike")
-    ticket_type = Prompt.ask("Typ", default="feature")
+    console.print("\nTypees: feature, bug, refactor, chore, spike")
+    ticket_type = Prompt.ask("Type", default="feature")
 
-    console.print("\nPrioritäten: critical, high, medium, low")
-    priority = Prompt.ask("Priorität", default="medium")
+    console.print("\nPriorities: critical, high, medium, low")
+    priority = Prompt.ask("Priority", default="medium")
 
-    console.print("\nBeschreibung (leer lassen = Ende):")
+    console.print("\nDescription (empty line to end):")
     description_lines = []
     while True:
         line = input()
@@ -262,34 +292,34 @@ description: |
     ticket_file = tickets_dir / f"{ticket_id}.yaml"
     ticket_file.write_text(ticket_content)
 
-    console.print(f"\n[green]✅ Ticket {ticket_id} erstellt![/green]")
-    console.print(f"   Datei: {ticket_file}")
+    console.print(f"\n[green]✅ Ticket {ticket_id} created![/green]")
+    console.print(f"   File: {ticket_file}")
 
 
-@app.command()
+@app.command(name="pulse")
 @require_initialized
-def status():
-    """Zeigt den Status des Backlogs an."""
+def pulse():
+    """Shows the pulse (status) of the Hive."""
     tickets_dir = get_tickets_dir()
 
     if not tickets_dir.exists():
-        console.print("[yellow]Keine Tickets vorhanden.[/yellow]")
+        console.print("[yellow]No tickets available.[/yellow]")
         return
 
     ticket_files = list(tickets_dir.glob("*.yaml"))
 
     if not ticket_files:
-        console.print("[yellow]Keine Tickets im Backlog.[/yellow]")
+        console.print("[yellow]No tickets in backlog.[/yellow]")
         return
 
     import yaml
 
     table = Table(title=f"Backlog ({get_project_path().name})")
     table.add_column("ID", style="cyan")
-    table.add_column("Titel", style="white")
-    table.add_column("Typ", style="blue")
+    table.add_column("Title", style="white")
+    table.add_column("Type", style="blue")
     table.add_column("Status", style="green")
-    table.add_column("Priorität", style="yellow")
+    table.add_column("Priority", style="yellow")
 
     for ticket_file in sorted(ticket_files):
         with open(ticket_file) as f:
@@ -311,36 +341,43 @@ def status():
     console.print(table)
 
 
-@app.command()
+@app.command(name="status", hidden=True)
 @require_initialized
-def show(ticket_id: str = typer.Argument(..., help="Ticket-ID anzeigen")):
-    """Zeigt detaillierte Ticket-Informationen an."""
+def status_alias():
+    """Alias for pulse."""
+    pulse()
+
+
+@app.command(name="dissect")
+@require_initialized
+def dissect(ticket_id: str = typer.Argument(..., help="Ticket ID to dissect")):
+    """Dissects a ticket (shows detailed information)."""
     import yaml
 
     ticket_file = get_tickets_dir() / f"{ticket_id}.yaml"
 
     if not ticket_file.exists():
-        console.print(f"[red]Ticket {ticket_id} nicht gefunden.[/red]")
+        console.print(f"[red]Ticket {ticket_id} not found.[/red]")
         raise typer.Exit(1)
 
     with open(ticket_file) as f:
         ticket = yaml.safe_load(f)
 
     console.print(f"\n[bold cyan]Ticket: {ticket.get('id')}[/bold cyan]")
-    console.print(f"[bold]Titel:[/bold] {ticket.get('title')}")
-    console.print(f"[bold]Typ:[/bold] {ticket.get('type')}")
+    console.print(f"[bold]Title:[/bold] {ticket.get('title')}")
+    console.print(f"[bold]Type:[/bold] {ticket.get('type')}")
     console.print(f"[bold]Status:[/bold] {ticket.get('status')}")
-    console.print(f"[bold]Priorität:[/bold] {ticket.get('priority')}")
-    console.print(f"\n[bold]Beschreibung:[/bold]\n{ticket.get('description', '')}")
+    console.print(f"[bold]Priority:[/bold] {ticket.get('priority')}")
+    console.print(f"\n[bold]Description:[/bold]\n{ticket.get('description', '')}")
 
 
-@app.command()
+@app.command(name="assimilate")
 @require_initialized
-def index(
-    full: bool = typer.Option(False, "--full", "-f", help="Force full re-index"),
-    status_only: bool = typer.Option(False, "--status", "-s", help="Zeige nur den Index-Status"),
+def assimilate(
+    full: bool = typer.Option(False, "--full", "-f", help="Force full assimilation"),
+    status_only: bool = typer.Option(False, "--status", "-s", help="Show only the assimilation status"),
 ):
-    """Indexiert die Codebase für semantische Suche (RAG)."""
+    """Assimilates (indexes) the codebase into the swarm (RAG)."""
     from tools.rag import CodebaseIndexer, EmbeddingService, VectorDB
 
     project_path = get_project_path()
@@ -354,10 +391,10 @@ def index(
                 vectordb=vectordb,
             )
             status = indexer.get_status()
-            console.print("\n[bold blue]RAG Index Status[/bold blue]")
-            console.print(f"  Projekt: {status['workspace_path']}")
-            console.print(f"  Letzte Indexierung: {status['last_indexed'] or 'Nie'}")
-            console.print(f"  Indizierte Dateien: {status['indexed_files']}")
+            console.print("\n[bold blue]Thought assimilation status[/bold blue]")
+            console.print(f"  Project: {status['workspace_path']}")
+            console.print(f"  Last assimilation: {status['last_indexed'] or 'Never'}")
+            console.print(f"  Assimilated files: {status['indexed_files']}")
             console.print(f"  Chunks: {status['total_chunks']}")
             return
 
@@ -369,35 +406,45 @@ def index(
             vectordb=vectordb,
         )
 
-        console.print(f"\n[bold blue]Indexiere: {project_path}[/bold blue]")
+        console.print(f"\n[bold blue]Assimilating knowledge: {project_path}[/bold blue]")
 
         def progress(file_path: str, current: int, total: int):
             console.print(f"  [{current}/{total}] {Path(file_path).name}")
 
         if full:
-            console.print("[yellow]Vollständige Neuindexierung...[/yellow]")
+            console.print("[yellow]Full assimilation of the codebase...[/yellow]")
             result = await indexer.index_full(progress_callback=progress)
         else:
             result = await indexer.index_changed_files(progress_callback=progress)
 
-        console.print("\n[green]✓ Indexierung abgeschlossen![/green]")
+        console.print("\n[green]✓ Assimilation into the swarm completed![/green]")
         if full:
-            console.print(f"  Dateien: {result['files_indexed']}")
+            console.print(f"  Files: {result['files_indexed']}")
         else:
-            console.print(f"  Geändert: {result['files_changed']}")
-            console.print(f"  Gelöscht: {result['files_deleted']}")
+            console.print(f"  Changed: {result['files_changed']}")
+            console.print(f"  Deleted: {result['files_deleted']}")
         console.print(f"  Chunks: {result['chunks_created']}")
 
     asyncio.run(_index())
 
 
-@app.command()
+@app.command(name="index", hidden=True)
 @require_initialized
-def search(
-    query: str = typer.Argument(..., help="Suchanfrage"),
-    n_results: int = typer.Option(5, "-n", help="Anzahl der Ergebnisse"),
+def index(
+    full: bool = typer.Option(False, "--full", "-f"),
+    status_only: bool = typer.Option(False, "--status", "-s"),
 ):
-    """Durchsucht die Codebase semantisch."""
+    """Alias for assimilate."""
+    assimilate(full=full, status_only=status_only)
+
+
+@app.command(name="scout")
+@require_initialized
+def scout(
+    query: str = typer.Argument(..., help="Scouting mission (search query)"),
+    n_results: int = typer.Option(5, "-n", help="Number of results"),
+):
+    """Sends a scout to semantically search the codebase."""
     from tools.rag import RAGSearchTool
 
     project_path = get_project_path()
@@ -407,28 +454,28 @@ def search(
         result = await tool.execute(query=query, n_results=n_results)
 
         if result.success:
-            console.print(f"\n[bold blue]Suche:[/bold blue] {query}\n")
+            console.print(f"\n[bold blue]Search:[/bold blue] {query}\n")
             console.print(result.output)
         else:
-            console.print(f"[red]Fehler: {result.error}[/red]")
+            console.print(f"[red]Error: {result.error}[/red]")
 
     asyncio.run(_search())
 
 
-@app.command()
+@app.command(name="trails")
 @require_initialized
-def audit(
-    tail: int = typer.Option(20, "-n", "--tail", help="Anzahl der Einträge"),
-    all_entries: bool = typer.Option(False, "--all", "-a", help="Zeige alle Einträge"),
+def trails(
+    tail: int = typer.Option(20, "-n", "--tail", help="Number of trails"),
+    all_entries: bool = typer.Option(False, "--all", "-a", help="Show all trails"),
 ):
-    """Zeigt das Audit-Log der Datei-Operationen."""
+    """Shows the trails of file operations."""
     from tools.guardrails import AuditLogger
 
     project_path = get_project_path()
     log_file = get_hive_dir() / "audit.log"
 
     if not log_file.exists():
-        console.print("[yellow]Kein Audit-Log vorhanden.[/yellow]")
+        console.print("[yellow]No trails available.[/yellow]")
         return
 
     logger = AuditLogger(workspace_path=str(project_path))
@@ -440,10 +487,10 @@ def audit(
         entries = logger.get_recent(tail)
 
     if not entries:
-        console.print("[yellow]Audit-Log ist leer.[/yellow]")
+        console.print("[yellow]No trails found.[/yellow]")
         return
 
-    console.print(f"\n[bold blue]Audit Log[/bold blue] ({len(entries)} Einträge)\n")
+    console.print(f"\n[bold blue]Trails (Audit Log)[/bold blue] ({len(entries)} entries)\n")
 
     for entry in entries:
         entry = entry.strip()
@@ -460,19 +507,19 @@ def audit(
             console.print(entry)
 
 
-@app.command()
+@app.command(name="observe")
 @require_initialized
-def activity(
-    tail: int = typer.Option(50, "-n", "--tail", help="Anzahl der Events"),
-    agent: Optional[str] = typer.Option(None, "--agent", "-a", help="Filter nach Agent"),
-    ticket: Optional[str] = typer.Option(None, "--ticket", "-t", help="Filter nach Ticket"),
-    event_type: Optional[str] = typer.Option(None, "--type", help="Filter nach Event-Typ"),
+def observe(
+    tail: int = typer.Option(50, "-n", "--tail", help="Number of events"),
+    agent: Optional[str] = typer.Option(None, "--agent", "-a", help="Filter by strain/agent"),
+    ticket: Optional[str] = typer.Option(None, "--ticket", "-t", help="Filter by larva/ticket"),
+    event_type: Optional[str] = typer.Option(None, "--type", help="Filter by event type"),
 ):
-    """Zeigt das Activity-Log aller Agenten- und Tool-Operationen."""
-    from core.activity_logger import ActivityLogger
+    """Observes the swarm at work."""
+    from core.overseer import Overseer
 
     project_path = get_project_path()
-    logger = ActivityLogger(workspace_path=str(project_path))
+    logger = Overseer(workspace_path=str(project_path))
 
     events = logger.get_events(
         n=tail,
@@ -482,12 +529,12 @@ def activity(
     )
 
     if not events:
-        console.print("[yellow]Keine Aktivitäten gefunden.[/yellow]")
+        console.print("[yellow]No swarm activities observed.[/yellow]")
         if agent or ticket or event_type:
             console.print(f"[dim]Filter: agent={agent}, ticket={ticket}, type={event_type}[/dim]")
         return
 
-    console.print(f"\n[bold blue]Activity Log[/bold blue] ({len(events)} Events)\n")
+    console.print(f"\n[bold blue]Swarm Network (Activity Log)[/bold blue] ({len(events)} Events)\n")
 
     # Event type icons
     icons = {
@@ -496,16 +543,20 @@ def activity(
         "agent_start": "🤖",
         "agent_complete": "✅",
         "agent_handoff": "🔀",
-        "tool_call": "🔧",
+        "tool_call": "🧬",
         "ticket_update": "📝",
         "llm_call": "🧠",
     }
+
+    from core.logging import HiveLogger
 
     for event in events:
         ts = event.get("ts", "")[:19].replace("T", " ")
         etype = event.get("type", "unknown")
         icon = icons.get(etype, "•")
-        agent_name = event.get("agent", event.get("from_agent", ""))
+
+        raw_agent_name = event.get("agent", event.get("from_agent", ""))
+        agent_name = HiveLogger.AGENT_NAMES.get(raw_agent_name, raw_agent_name.upper()) if raw_agent_name else "SYSTEM"
 
         # Format based on event type
         if etype == "tool_call":
@@ -514,7 +565,8 @@ def activity(
             style = "green" if event.get("success") else "red"
             console.print(f"[dim]{ts}[/dim] {icon} [{style}]{success}[/{style}] [cyan]{agent_name}[/cyan] → {tool}")
         elif etype == "agent_handoff":
-            to_agent = event.get("to_agent", "?")
+            raw_to_agent = event.get("to_agent", "?")
+            to_agent = HiveLogger.AGENT_NAMES.get(raw_to_agent, raw_to_agent.upper())
             console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] → [cyan]{to_agent}[/cyan]")
         elif etype == "ticket_update":
             ticket_id = event.get("ticket", "?")
@@ -523,13 +575,13 @@ def activity(
             console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] {ticket_id}.{field} = {new_val}")
         else:
             msg = event.get("action", event.get("message", etype))
-            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name or 'system'}[/cyan] {msg}")
+            console.print(f"[dim]{ts}[/dim] {icon} [cyan]{agent_name}[/cyan] {msg}")
 
 
-@app.command()
+@app.command(name="essence")
 @require_initialized
-def context():
-    """Zeigt den Projektkontext an, der den Agenten bereitgestellt wird."""
+def essence():
+    """Shows the essence provided to the agents."""
     async def _context():
         ctx = get_context_manager()
         full_context = await ctx.get_full_context()

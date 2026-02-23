@@ -15,7 +15,7 @@ class MessageSubscription:
     message_types: list[MessageType] = field(default_factory=list)
 
 
-class MessageBus:
+class Link:
     """
     Central message bus for agent communication.
     

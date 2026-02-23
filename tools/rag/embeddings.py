@@ -51,10 +51,10 @@ class EmbeddingService:
         self.dimensions = dimensions
         self.batch_size = batch_size
 
-        # Try to resolve API key: Argument -> GlobalConfig -> Env Var (handled by GlobalConfigManager)
+        # Try to resolve API key: Argument -> GlobalConfig -> Env Var (handled by Genetics)
         if not api_key:
-            from core.global_config import GlobalConfigManager
-            config_manager = GlobalConfigManager()
+            from core.genetics import Genetics
+            config_manager = Genetics()
             api_key = config_manager.get_api_key("openai")
 
         if api_key:

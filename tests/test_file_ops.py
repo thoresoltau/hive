@@ -36,7 +36,7 @@ class TestReadFileTool:
         result = await tool.execute(path="nonexistent.txt")
 
         assert result.status == ToolResultStatus.ERROR
-        assert "nicht gefunden" in result.error.lower()
+        assert "not found" in result.error.lower()
 
     async def test_read_with_line_range(self, tool, temp_file):
         """Should read specific line range."""
@@ -88,7 +88,7 @@ class TestWriteFileTool:
         )
 
         assert result.status == ToolResultStatus.ERROR
-        assert "existiert" in result.error.lower()
+        assert "exist" in result.error.lower()
 
     async def test_write_overwrites_by_default(self, tool, temp_file):
         """Should overwrite existing file by default."""
@@ -139,7 +139,7 @@ class TestEditFileTool:
         )
 
         assert result.status == ToolResultStatus.ERROR
-        assert "nicht gefunden" in result.error.lower()
+        assert "not found" in result.error.lower()
 
     async def test_edit_nonexistent_file(self, tool):
         """Should return error for non-existent file."""
@@ -229,7 +229,7 @@ class TestDeleteFileTool:
         result = await tool.execute(path="to_delete.txt")
 
         assert result.success
-        assert "gelöscht" in result.output
+        assert "deleted" in result.output
         assert not file_path.exists()
 
     async def test_delete_nonexistent_file(self, tool):
@@ -237,7 +237,7 @@ class TestDeleteFileTool:
         result = await tool.execute(path="nonexistent.txt")
 
         assert result.status == ToolResultStatus.ERROR
-        assert "nicht gefunden" in result.error.lower()
+        assert "not found" in result.error.lower()
 
     async def test_delete_directory_fails(self, tool, temp_dir):
         """Should return error when trying to delete a directory."""
@@ -248,7 +248,7 @@ class TestDeleteFileTool:
         result = await tool.execute(path="subdir")
 
         assert result.status == ToolResultStatus.ERROR
-        assert "verzeichnis" in result.error.lower()
+        assert "directory" in result.error.lower()
 
 
 class TestMoveFileTool:
@@ -289,7 +289,7 @@ class TestMoveFileTool:
         )
 
         assert result.success
-        assert "umbenannt" in result.output
+        assert "renamed" in result.output
         assert not source.exists()
         assert (temp_dir / "new_name.txt").exists()
 
@@ -301,7 +301,7 @@ class TestMoveFileTool:
         )
 
         assert result.status == ToolResultStatus.ERROR
-        assert "nicht gefunden" in result.error.lower()
+        assert "not found" in result.error.lower()
 
     async def test_move_existing_destination_without_overwrite(self, tool, temp_dir):
         """Should return error when destination exists without overwrite."""
@@ -317,7 +317,7 @@ class TestMoveFileTool:
         )
 
         assert result.status == ToolResultStatus.ERROR
-        assert "existiert bereits" in result.error
+        assert "already exists" in result.error
 
     async def test_move_with_overwrite(self, tool, temp_dir):
         """Should overwrite destination when overwrite=True."""
@@ -413,4 +413,4 @@ class TestCreateDirectoryTool:
         result = await tool.execute(path="is_a_file")
 
         assert result.status == ToolResultStatus.ERROR
-        assert "Datei" in result.error
+        assert "file" in result.error

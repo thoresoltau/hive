@@ -22,7 +22,7 @@ def test_dynamic_context_update():
     # Verify Initial State
     initial_prompt = agent.system_prompt
     assert "ROLE: You are a tester." in initial_prompt
-    assert "Projektkontext" not in initial_prompt
+    assert "Project context" not in initial_prompt
 
     # 2. Update Context
     new_context = "PROJECT: The project is about testing."
@@ -31,7 +31,7 @@ def test_dynamic_context_update():
     # Verify Updated State
     updated_prompt = agent.system_prompt
     assert "ROLE: You are a tester." in updated_prompt
-    assert "Projektkontext" in updated_prompt
+    assert "Project context" in updated_prompt
     assert new_context in updated_prompt
 
     # 3. Update Again

@@ -20,7 +20,7 @@ class GlobalConfig(BaseModel):
     mcp_registry_url: Optional[str] = None
 
 
-class GlobalConfigManager:
+class Genetics:
     """Manages the global configuration in ~/.hive/config.yaml."""
 
     def __init__(self):

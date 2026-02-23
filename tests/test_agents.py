@@ -25,8 +25,8 @@ from core.models import (
     UserStory,
     RelatedFile,
 )
-from core.backlog import BacklogManager
-from core.message_bus import MessageBus
+from core.hatchery import Hatchery
+from core.link import Link
 from tools.base import ToolRegistry, Tool, ToolResult, ToolResultStatus
 
 
@@ -47,13 +47,13 @@ def mock_openai_client():
 @pytest.fixture
 def message_bus():
     """Create a message bus instance."""
-    return MessageBus()
+    return Link()
 
 
 @pytest_asyncio.fixture
 async def backlog_manager(temp_dir):
     """Create a backlog manager with temp directory."""
-    manager = BacklogManager(backlog_path=temp_dir)
+    manager = Hatchery(hatchery_path=temp_dir)
     await manager.initialize()
     return manager
 
@@ -412,7 +412,7 @@ class TestBaseAgentToolCalls:
         result = await agent.execute_tool("nonexistent_tool")
 
         assert result.success is False
-        assert "nicht gefunden" in result.error
+        assert "not found" in result.error
 
     @pytest.mark.asyncio
     async def test_execute_tool_no_registry(self, test_agent):
@@ -420,7 +420,7 @@ class TestBaseAgentToolCalls:
         result = await test_agent.execute_tool("any_tool")
 
         assert result.success is False
-        assert "Keine Tools verfügbar" in result.error
+        assert "No tools available" in result.error
 
 
 class TestBaseAgentCommunication:
@@ -530,7 +530,7 @@ class TestBaseAgentTicketFormatting:
         """Should include technical context."""
         context = test_agent._format_ticket_context(sample_ticket)
 
-        assert "Technischer Kontext" in context
+        assert "Technical context" in context
         assert "backend" in context
         assert "src/api.py" in context
 
@@ -544,7 +544,7 @@ class TestBaseAgentGitOperations:
         result = await test_agent._check_git_status()
 
         assert result["has_changes"] is False
-        assert result["error"] == "Keine Tools verfügbar"
+        assert result["error"] == "No tools available"
 
     @pytest.mark.asyncio
     async def test_rollback_changes_no_tools(self, test_agent):
@@ -552,7 +552,7 @@ class TestBaseAgentGitOperations:
         result = await test_agent._rollback_changes()
 
         assert result["success"] is False
-        assert "verfügbar" in result["message"].lower() or "tool" in result["message"].lower()
+        assert "available" in result["message"].lower() or "tool" in result["message"].lower()
 
 
 # === Specialized Agent Tests ===
@@ -567,7 +567,7 @@ class TestScrumMasterAgent:
             name="scrum_master",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Scrum Master.",
+            system_prompt="You are a Scrum Master.",
             tools=tool_registry,
         )
 
@@ -606,7 +606,7 @@ class TestScrumMasterAgent:
 
         assert response.success is True
         assert response.action_taken == "no_tickets_available"
-        assert "Keine Tickets" in response.message
+        assert "No tickets" in response.message
 
     @pytest.mark.asyncio
     async def test_select_next_ticket_with_planned_ticket(self, scrum_master, sample_ticket):
@@ -670,7 +670,7 @@ class TestScrumMasterAgent:
 
         assert response.success is False
         assert response.action_taken == "refinement_failed"
-        assert "Keine Ticket-ID" in response.message
+        assert "No ticket ID" in response.message
 
     @pytest.mark.asyncio
     async def test_start_refinement_ticket_not_found(self, scrum_master):
@@ -688,7 +688,7 @@ class TestScrumMasterAgent:
 
         assert response.success is False
         assert response.action_taken == "refinement_failed"
-        assert "nicht gefunden" in response.message
+        assert "not found" in response.message
 
     @pytest.mark.asyncio
     async def test_check_blockers_none(self, scrum_master):
@@ -848,7 +848,7 @@ class TestProductOwnerAgent:
             name="product_owner",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Product Owner.",
+            system_prompt="You are a Product Owner.",
             tools=tool_registry,
         )
 
@@ -871,7 +871,7 @@ class TestProductOwnerAgent:
 
         assert response.success is False
         assert response.action_taken == "refinement_failed"
-        assert "Keine Ticket-ID" in response.message
+        assert "No ticket ID" in response.message
 
     @pytest.mark.asyncio
     async def test_refine_ticket_not_found(self, product_owner):
@@ -888,7 +888,7 @@ class TestProductOwnerAgent:
 
         assert response.success is False
         assert response.action_taken == "refinement_failed"
-        assert "nicht gefunden" in response.message
+        assert "not found" in response.message
 
     @pytest.mark.asyncio
     async def test_refine_ticket_success(self, product_owner, sample_ticket, mock_openai_client):
@@ -963,7 +963,7 @@ class TestProductOwnerAgent:
 
         assert response.success is False
         assert response.action_taken == "validation_failed"
-        assert "nicht im Review-Status" in response.message
+        assert "not in review status" in response.message
 
     @pytest.mark.asyncio
     async def test_handle_handoff_refine(self, product_owner, sample_ticket, mock_openai_client):
@@ -985,7 +985,7 @@ class TestProductOwnerAgent:
             from_agent="scrum_master",
             to_agent="product_owner",
             message_type=MessageType.HANDOFF,
-            content="Bitte verfeinere dieses Ticket",
+            content="Please refine this ticket",
             ticket_id="TEST-001",
         )
 
@@ -1017,7 +1017,7 @@ class TestProductOwnerAgent:
             from_agent="architect",
             to_agent="product_owner",
             message_type=MessageType.HANDOFF,
-            content="Code-Review bestanden",
+            content="Code review passed",
             ticket_id="TEST-001",
         )
 
@@ -1041,7 +1041,7 @@ class TestProductOwnerAgent:
             name="product_owner",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Product Owner.",
+            system_prompt="You are a Product Owner.",
             tools=None,  # No tools
         )
 
@@ -1055,7 +1055,7 @@ class TestProductOwnerAgent:
 
         result = await product_owner._read_implementation_files(ticket)
 
-        assert "Keine Tools" in result
+        assert "No tools" in result
 
     @pytest.mark.asyncio
     async def test_run_tests_without_tools(self, mock_openai_client, backlog_manager, message_bus):
@@ -1064,13 +1064,13 @@ class TestProductOwnerAgent:
             name="product_owner",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Product Owner.",
+            system_prompt="You are a Product Owner.",
             tools=None,
         )
 
         result = await product_owner._run_tests_for_validation()
 
-        assert "Keine Tools" in result
+        assert "No tools" in result
 
 
 class TestArchitectAgent:
@@ -1083,7 +1083,7 @@ class TestArchitectAgent:
             name="architect",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Software-Architekt.",
+            system_prompt="You are a Software Architect.",
             tools=tool_registry,
             codebase_path=str(temp_dir),
         )
@@ -1209,7 +1209,7 @@ class TestArchitectAgent:
             name="architect",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Architekt.",
+            system_prompt="You are an Architect.",
             tools=None,  # No tools = simpler code path
         )
 
@@ -1234,7 +1234,7 @@ class TestArchitectAgent:
             from_agent="scrum_master",
             to_agent="architect",
             message_type=MessageType.HANDOFF,
-            content="Ticket wartet auf Review",
+            content="Ticket is waiting for review",
             ticket_id="TEST-001",
         )
 
@@ -1254,7 +1254,7 @@ class TestFrontendDevAgent:
             name="frontend_dev",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Frontend-Entwickler.",
+            system_prompt="You are a Frontend Developer.",
             tools=tool_registry,
         )
 
@@ -1334,7 +1334,7 @@ class TestBackendDevAgent:
             name="backend_dev",
             backlog=backlog_manager,
             message_bus=message_bus,
-            system_prompt="Du bist ein Backend-Entwickler.",
+            system_prompt="You are a Backend Developer.",
             tools=tool_registry,
         )
 

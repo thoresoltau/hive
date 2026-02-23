@@ -27,14 +27,14 @@ class TechStack:
         """Format for LLM context."""
         parts = []
         if self.languages:
-            parts.append(f"**Sprachen:** {', '.join(self.languages)}")
+            parts.append(f"**Languages:** {', '.join(self.languages)}")
         if self.frameworks:
             parts.append(f"**Frameworks:** {', '.join(self.frameworks)}")
         if self.databases:
-            parts.append(f"**Datenbanken:** {', '.join(self.databases)}")
+            parts.append(f"**Databases:** {', '.join(self.databases)}")
         if self.tools:
             parts.append(f"**Tools:** {', '.join(self.tools)}")
-        return "\n".join(parts) if parts else "Nicht spezifiziert"
+        return "\n".join(parts) if parts else "Not specified"
 
 
 @dataclass
@@ -55,7 +55,7 @@ class CodeConventions:
             parts.append(f"**Naming:** {conv}")
         if self.testing_strategy:
             parts.append(f"**Testing:** {self.testing_strategy}")
-        return "\n".join(parts) if parts else "Standard-Konventionen"
+        return "\n".join(parts) if parts else "Standard conventions"
 
 
 @dataclass
@@ -165,30 +165,30 @@ class ProjectConfig:
     
     def to_context(self) -> str:
         """Format full project context for LLM."""
-        return f"""## Projekt: {self.name}
+        return f"""## Project: {self.name}
 {self.description}
 
 ### Tech Stack
 {self.tech_stack.to_context()}
 
-### Konventionen
+### Conventions
 {self.conventions.to_context()}
 
-### Projektstruktur
+### Project Structure
 - **Source:** {', '.join(self.source_dirs)}
 - **Tests:** {', '.join(self.test_dirs)}
 - **Docs:** {', '.join(self.doc_dirs)}
 
-### Wichtig: Dateipfade
-Alle Dateipfade sind **relativ zum Workspace-Root** (dem aktuellen Arbeitsverzeichnis).
-Du befindest dich bereits im Projektverzeichnis. Verwende KEINE Projektnamens-Präfixe!
-- ✅ RICHTIG: `src/index.tsx`, `package.json`, `tests/test_app.py`
-- ❌ FALSCH: `{self.name}/src/index.tsx`, `{self.name}/package.json`
+### Important: File Paths
+All file paths are **relative to the workspace root** (the current working directory).
+You are already in the project directory. Do NOT use project name prefixes!
+- ✅ CORRECT: `src/index.tsx`, `package.json`, `tests/test_app.py`
+- ❌ WRONG: `{self.name}/src/index.tsx`, `{self.name}/package.json`
 
-### Wichtige Dateien
-{chr(10).join(f'- {f}' for f in self.important_files) if self.important_files else 'Keine spezifiziert'}
+### Important Files
+{chr(10).join(f'- {f}' for f in self.important_files) if self.important_files else 'None specified'}
 
-### Architektur-Hinweise
+### Architecture Notes
 {self.architecture_notes if self.architecture_notes else 'Keine'}
 """
 
@@ -339,18 +339,18 @@ class ContextManager:
 ## Status
 {status}
 
-## Kontext
+## Context
 {context}
 
-## Entscheidung
+## Decision
 {decision}
 
-## Konsequenzen
+## Consequences
 {consequences}
 
 ---
-Datum: {date}
-Autor: {author}
+Date: {date}
+Author: {author}
 """
         
         template_path = adr_path / "TEMPLATE.md"
@@ -361,20 +361,20 @@ Autor: {author}
         # Create index
         index = """# Architecture Decision Records
 
-Dieses Verzeichnis enthält Architecture Decision Records (ADRs) für das Projekt.
+This directory contains Architecture Decision Records (ADRs) for the project.
 
 ## Index
 
-| ADR | Titel | Status | Datum |
+| ADR | Title | Status | Date |
 |-----|-------|--------|-------|
 | - | - | - | - |
 
-## Neue ADR erstellen
+## Create new ADR
 
-1. Kopiere `TEMPLATE.md`
-2. Benenne die Datei `ADR-XXX-kurzer-titel.md`
-3. Fülle die Vorlage aus
-4. Aktualisiere diesen Index
+1. Copy `TEMPLATE.md`
+2. Name the file `ADR-XXX-short-title.md`
+3. Fill out the template
+4. Update this index
 """
         
         index_path = adr_path / "README.md"
@@ -479,7 +479,7 @@ Dieses Verzeichnis enthält Architecture Decision Records (ADRs) für das Projek
             )
             parts.append(f"## Aktuelle ADRs\n{adr_summary}")
         
-        return "\n\n---\n\n".join(parts) if parts else "Kein Projektkontext verfügbar."
+        return "\n\n---\n\n".join(parts) if parts else "No project context available."
     
     @property
     def config(self) -> Optional[ProjectConfig]:
