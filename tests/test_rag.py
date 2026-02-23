@@ -6,7 +6,6 @@ Embedding tests are skipped by default (require API key).
 """
 
 import tempfile
-from pathlib import Path
 
 import pytest
 

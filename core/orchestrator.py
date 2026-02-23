@@ -6,7 +6,6 @@ from typing import Optional
 import os
 
 import yaml
-from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from .backlog import BacklogManager
@@ -21,7 +20,7 @@ from tools.base import ToolRegistry
 class Orchestrator:
     """
     Main orchestrator for the Hive Agent Swarm.
-    
+
     Responsibilities:
     - Initialize all agents
     - Coordinate workflow between agents
@@ -36,33 +35,47 @@ class Orchestrator:
         codebase_path: Optional[str | Path] = None,
     ):
         load_dotenv()
-        
+
         self.backlog_path = Path(backlog_path)
         self.config_path = Path(config_path)
         self.codebase_path = Path(codebase_path) if codebase_path else None
-        
+
         # Initialize core components
         from .global_config import GlobalConfigManager
         self.global_config = GlobalConfigManager()
-        api_key = self.global_config.get_api_key("openai")
-        
-        if not api_key:
-            self.log.warning("Kein OpenAI API Key gefunden. Bitte in ~/.hive/config.yaml oder als Environment Variable setzen.")
-        
-        self.client = AsyncOpenAI(api_key=api_key)
+        self.global_config.load()
+
+        # Determine active keys for warning only
+        has_keys = any([
+            self.global_config.config.openai_api_key,
+            self.global_config.config.gemini_api_key,
+            self.global_config.config.anthropic_api_key
+        ])
+
+        if not has_keys:
+            self.log.warning("Keine LLM API Keys gefunden. Bitte in ~/.hive/config.yaml oder als Environment Variable setzen.")
+
+        # Inject keys into env so litellm can find them automatically
+        if self.global_config.config.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = self.global_config.config.openai_api_key
+        if self.global_config.config.gemini_api_key:
+            os.environ["GEMINI_API_KEY"] = self.global_config.config.gemini_api_key
+        if self.global_config.config.anthropic_api_key:
+            os.environ["ANTHROPIC_API_KEY"] = self.global_config.config.anthropic_api_key
+
         self.backlog = BacklogManager(self.backlog_path)
         self.message_bus = MessageBus()
         self.context_manager = ContextManager(self.codebase_path) if self.codebase_path else None
-        
+
         # Agents will be initialized later
         self.agents: dict = {}
         self._running = False
-        
+
         # MCP Manager for external integrations (Context7, etc.)
         self.mcp_manager: Optional[MCPClientManager] = None
         self._config: dict = {}
         self._project_context: str = ""
-        
+
         # Logger
         self.log = get_logger(verbose=True)
 
@@ -71,17 +84,17 @@ class Orchestrator:
         # Load configuration
         with open(self.config_path) as f:
             self._config = yaml.safe_load(f)
-        
+
         # Initialize backlog
         await self.backlog.initialize()
-        
+
         # Load project context if available
         if self.context_manager and self.context_manager.is_initialized:
             self._project_context = await self.context_manager.get_full_context()
-        
+
         # Initialize agents
         await self._initialize_agents()
-        
+
         # Log initialization
         tools_count = len(self.tools.get_all()) if self.tools else 0
         self.log.workflow_start(
@@ -97,12 +110,10 @@ class Orchestrator:
             ProductOwnerAgent,
             ArchitectAgent,
             FrontendDevAgent,
-            ArchitectAgent,
-            FrontendDevAgent,
             BackendDevAgent,
             ObserverAgent,
         )
-        
+
         agent_classes = {
             "scrum_master": ScrumMasterAgent,
             "product_owner": ProductOwnerAgent,
@@ -111,16 +122,16 @@ class Orchestrator:
             "backend_dev": BackendDevAgent,
             "observer": ObserverAgent,
         }
-        
+
         agent_configs = self._config.get("agents", {})
-        model_name = os.getenv("MODEL_NAME", "gpt-4o")
-        
+        os.getenv("MODEL_NAME", "gpt-4o")
+
         # Create tool registry for all agents
         self.tools = None
         if self.codebase_path:
             self.tools = ToolRegistry()
             self.tools.register_defaults(workspace_path=str(self.codebase_path))
-            
+
             # Initialize MCP and register MCP tools
             self.mcp_manager = MCPClientManager()
             mcp_count = self.mcp_manager.load_from_config()
@@ -130,16 +141,15 @@ class Orchestrator:
                 if connected > 0:
                     mcp_tools = await self.tools.register_mcp_tools(self.mcp_manager)
                     self.log.debug(f"MCP: {connected} Server, {mcp_tools} Tools geladen")
-        
+
         for agent_key, agent_class in agent_classes.items():
             config = agent_configs.get(agent_key, {})
-            
+
             # System prompt from config (Role only)
             system_prompt = config.get("system_prompt", "")
-            
+
             kwargs = {
                 "name": agent_key,
-                "client": self.client,
                 "backlog": self.backlog,
                 "message_bus": self.message_bus,
                 "system_prompt": system_prompt,
@@ -148,21 +158,21 @@ class Orchestrator:
                     .replace("${MODEL_FAST}", self.global_config.config.model_name_fast),
                 "temperature": config.get("temperature", 0.3),
             }
-            
+
             # All agents get file tools for documentation, tickets, etc.
             if self.tools:
                 kwargs["tools"] = self.tools
-            
+
             # Add codebase path for architect
             if agent_key == "architect" and self.codebase_path:
                 kwargs["codebase_path"] = str(self.codebase_path)
-            
+
             self.agents[agent_key] = agent_class(**kwargs)
-            
+
             # Inject initial project context
             if self._project_context:
                 self.agents[agent_key].update_context(self._project_context)
-            
+
             # Explicitly initialize observer to start monitoring
             if agent_key == "observer":
                 await self.agents[agent_key].initialize()
@@ -171,7 +181,7 @@ class Orchestrator:
         """Run a single workflow cycle."""
         # Start with Scrum Master selecting next action
         scrum_master = self.agents["scrum_master"]
-        
+
         initial_message = AgentMessage(
             from_agent="orchestrator",
             to_agent="scrum_master",
@@ -179,36 +189,36 @@ class Orchestrator:
             content="Führe den nächsten Workflow-Schritt aus.",
             context={"task_type": "orchestrate"},
         )
-        
+
         response = await scrum_master.handle_message(initial_message)
-        
+
         if not response:
             return None
-        
+
         # Follow the agent chain
         current_response = response
         max_hops = 10  # Prevent infinite loops
         hop_count = 0
         handoff_history = []  # Track (from, to) pairs to detect ping-pong loops
-        
+
         while current_response.next_agent and hop_count < max_hops:
             next_agent_name = current_response.next_agent
             next_agent = self.agents.get(next_agent_name)
-            
+
             if not next_agent:
                 self.log.warning(f"Agent '{next_agent_name}' nicht gefunden")
                 break
-            
+
             # LOOP DETECTION
             # Check for ping-pong loops (A->B, B->A, A->B, ...)
             handoff_pair = (current_response.agent, next_agent_name)
             handoff_history.append(handoff_pair)
-            
+
             # Count occurrences of this specific handoff
             pair_count = handoff_history.count(handoff_pair)
             if pair_count >= 3:
                 self.log.error(f"🛑 Loop Detected: {current_response.agent} -> {next_agent_name} happened {pair_count} times. Breaking execution.")
-                
+
                 # Create a synthetic response to inform the user about the loop
                 return AgentResponse(
                     success=False,
@@ -218,7 +228,7 @@ class Orchestrator:
                     ticket_id=current_response.ticket_id
                 )
 
-            
+
             # CHECK FOR ADR PROPOSAL
             if current_response.action_taken == "adr_proposed":
                 self.log.info(f"🏛️ ADR Proposed by {current_response.agent}. Starting Consensus Protocol.")
@@ -227,7 +237,7 @@ class Orchestrator:
                 # For now, we log it and continue to the originally planned next agent.
                 if not consensus_result:
                      self.log.warning("ADR Consensus failed or rejected.")
-            
+
             # Create handoff message
             handoff_message = AgentMessage(
                 from_agent=current_response.agent,
@@ -237,77 +247,77 @@ class Orchestrator:
                 content=current_response.message or "",
                 context=current_response.result,
             )
-            
+
             self.log.agent_handoff(
                 from_agent=current_response.agent,
                 to_agent=next_agent_name,
                 reason=current_response.message[:50] if current_response.message else "",
             )
-            
+
             current_response = await next_agent.handle_message(handoff_message)
-            
+
             if not current_response:
                 break
-            
+
             hop_count += 1
-        
+
         return current_response
 
     async def refresh_context(self) -> None:
         """Refresh project context and push to all agents."""
         if not self.context_manager:
             return
-            
+
         self.log.info("Refreshing project context...")
         # Reload context
         await self.context_manager.load()
         self._project_context = await self.context_manager.get_full_context()
-        
+
         # Push to all agents
         count = 0
         for agent in self.agents.values():
             if hasattr(agent, "update_context"):
                 agent.update_context(self._project_context)
                 count += 1
-        
+
         self.log.info(f"Context updated for {count} agents.")
 
     async def run(self, max_cycles: int = 10) -> None:
         """Run the main orchestration loop."""
         self._running = True
         cycle = 0
-        
+
         self.log.info("Starte Workflow...")
-        
+
         while self._running and cycle < max_cycles:
             cycle += 1
             self.log.workflow_cycle_start(cycle, max_cycles)
-            
+
             try:
                 response = await self.run_single_cycle()
-                
+
                 if response:
                     self.log.workflow_cycle_end(
                         result=response.action_taken,
                         message=response.message,
                     )
-                    
+
                     # Check if we're done (no more work)
                     if response.action_taken == "no_tickets_available":
                         self.log.info("Keine weiteren Tickets zu bearbeiten")
                         break
                 else:
                     self.log.warning("Keine Antwort von Agents")
-                    
+
             except Exception as e:
                 self.log.error(f"Fehler in Zyklus {cycle}", exception=e)
                 if self.log.verbose:
                     import traceback
                     traceback.print_exc()
-            
+
             # Small delay between cycles
             await asyncio.sleep(1)
-        
+
         # Print final summary
         summary = self.backlog.get_sprint_summary()
         self.log.workflow_finish(summary)
@@ -316,7 +326,7 @@ class Orchestrator:
         """Stop the orchestration loop."""
         self._running = False
         await self.message_bus.stop()
-        
+
         # Disconnect MCP servers
         if self.mcp_manager:
             await self.mcp_manager.disconnect_all()
@@ -331,7 +341,7 @@ class Orchestrator:
                 action_taken="ticket_not_found",
                 message=f"Ticket {ticket_id} nicht gefunden.",
             )
-        
+
         # Determine starting point based on ticket status
         if ticket.status == TicketStatus.BACKLOG:
             start_agent = "product_owner"
@@ -356,10 +366,10 @@ class Orchestrator:
                 action_taken="ticket_already_done",
                 message=f"Ticket {ticket_id} ist bereits {ticket.status.value}.",
             )
-        
+
         print(f"\n🎫 Processing {ticket_id}: {task}")
         print(f"   Starting with: {start_agent}")
-        
+
         # Start processing
         agent = self.agents[start_agent]
         message = AgentMessage(
@@ -369,19 +379,19 @@ class Orchestrator:
             ticket_id=ticket_id,
             content=f"Bearbeite Ticket {ticket_id}",
         )
-        
+
         response = await agent.handle_message(message)
-        
+
         # Follow chain
         current_response = response
         max_hops = 10
         hop_count = 0
-        
+
         while current_response and current_response.next_agent and hop_count < max_hops:
             next_agent = self.agents.get(current_response.next_agent)
             if not next_agent:
                 break
-            
+
             handoff = AgentMessage(
                 from_agent=current_response.agent,
                 to_agent=current_response.next_agent,
@@ -390,11 +400,11 @@ class Orchestrator:
                 content=current_response.message or "",
                 context=current_response.result,
             )
-            
+
             print(f"   → {current_response.agent} → {current_response.next_agent}")
             current_response = await next_agent.handle_message(handoff)
             hop_count += 1
-        
+
         return current_response
 
     async def _run_adr_consensus(self, response: AgentResponse) -> bool:
@@ -407,9 +417,9 @@ class Orchestrator:
         if not po_agent:
             self.log.warning("Consensus skipped: No Product Owner agent found.")
             return True # Assume implicit approval if no PO? Or fail?
-            
-        print(f"\n🗳️  ADR Consensus: Requesting review from Product Owner...")
-        
+
+        print("\n🗳️  ADR Consensus: Requesting review from Product Owner...")
+
         # Ask PO
         msg = AgentMessage(
             from_agent="orchestrator",
@@ -418,26 +428,26 @@ class Orchestrator:
             ticket_id=response.ticket_id,
             content=f"""
             ADR PROPOSAL REVIEW REQUIRED.
-            
+
             The Architect has proposed an architectural decision.
             Please review it for business alignment and feasibility limitations.
-            
+
             Proposal Context:
             {response.message}
-            
+
             Do you APPROVE or REJECT this decision?
             Answer with "APPROVE" or "REJECT" and your reasoning.
             """,
             context=response.result # Contains analysis/adr details
         )
-        
+
         reply = await po_agent.handle_message(msg)
-        
+
         if not reply:
             return False
-            
+
         is_approved = "approve" in reply.message.lower() or "bestätig" in reply.message.lower()
-        
+
         if is_approved:
             print("✅ ADR Approved by Product Owner.")
             # TODO: Update ADR status in file to 'Accepted'

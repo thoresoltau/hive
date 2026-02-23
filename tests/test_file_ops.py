@@ -1,7 +1,6 @@
 """Tests for file operation tools."""
 
 import pytest
-from pathlib import Path
 
 from tools.file_ops import (
     ReadFileTool,
@@ -377,7 +376,7 @@ class TestCreateDirectoryTool:
         
         assert result.success
         assert (temp_dir / "new_dir").is_dir()
-        assert result.metadata["created"] == True
+        assert result.metadata["created"]
 
     async def test_create_nested_directories(self, tool, temp_dir):
         """Should create nested directories."""
@@ -394,7 +393,7 @@ class TestCreateDirectoryTool:
         result = await tool.execute(path="existing")
         
         assert result.success
-        assert result.metadata["created"] == False
+        assert not result.metadata["created"]
 
     async def test_create_fails_if_file_exists(self, tool, temp_dir):
         """Should fail if path exists as file."""

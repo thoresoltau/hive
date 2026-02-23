@@ -4,7 +4,6 @@ Guardrails for safe file operations.
 Provides path validation, protected path detection, and audit logging.
 """
 
-import logging
 import os
 import re
 from datetime import datetime
@@ -132,7 +131,7 @@ class PathValidator:
             Tuple of (is_protected, reason)
         """
         path_obj = Path(path)
-        path_str = str(path)
+        str(path)
         
         # Check exact matches
         for protected in PROTECTED_PATHS:

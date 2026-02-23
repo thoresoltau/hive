@@ -1,8 +1,7 @@
 """MCP Client implementation."""
 
-from typing import Optional, Any
+from typing import Optional
 import logging
-import uuid
 
 from .protocol import (
     MCPRequest,

@@ -3,7 +3,7 @@
 import json
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from agents.base_agent import BaseAgent
 from agents import (
@@ -34,25 +34,16 @@ from tools.base import ToolRegistry, Tool, ToolResult, ToolResultStatus
 
 @pytest.fixture
 def mock_openai_client():
-    """Create a mock OpenAI client."""
-    client = MagicMock()
-    client.chat = MagicMock()
-    client.chat.completions = MagicMock()
-    
-    # Mock response
-    mock_response = MagicMock()
-    mock_message = MagicMock()
-    mock_message.content = "Mocked LLM response"
-    mock_message.tool_calls = None
-    mock_response.choices = [MagicMock(message=mock_message)]
-    
-    # Make it async
-    async_mock = AsyncMock(return_value=mock_response)
-    client.chat.completions.create = async_mock
-    
-    return client
-
-
+    with patch("agents.base_agent.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        mock_response = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = "Mocked LLM response"
+        mock_message.tool_calls = None
+        # model_dump for litellm compatibility
+        mock_message.model_dump.return_value = {"content": "Mocked LLM response", "tool_calls": None, "role": "assistant"}
+        mock_response.choices = [MagicMock(message=mock_message)]
+        mock_acompletion.return_value = mock_response
+        yield mock_acompletion
 @pytest.fixture
 def message_bus():
     """Create a message bus instance."""
@@ -149,7 +140,6 @@ def test_agent(mock_openai_client, backlog_manager, message_bus):
     """Create a test agent instance."""
     return ConcreteTestAgent(
         name="test_agent",
-        client=mock_openai_client,
         backlog=backlog_manager,
         message_bus=message_bus,
         system_prompt="You are a test agent.",
@@ -178,7 +168,6 @@ class TestBaseAgentInit:
         """Agent should accept tool registry."""
         agent = ConcreteTestAgent(
             name="tool_agent",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent with tools",
@@ -223,7 +212,7 @@ class TestBaseAgentMessageHandling:
         assert response is not None
         assert response.success is True
         assert response.action_taken == "question_answered"
-        mock_openai_client.chat.completions.create.assert_called()
+        mock_openai_client.assert_called()
     
     @pytest.mark.asyncio
     async def test_handle_update_message(self, test_agent):
@@ -269,21 +258,21 @@ class TestBaseAgentLLMCalls:
         response = await test_agent._call_llm("Test message")
         
         assert response == "Mocked LLM response"
-        mock_openai_client.chat.completions.create.assert_called_once()
+        mock_openai_client.assert_called_once()
         
-        call_args = mock_openai_client.chat.completions.create.call_args
+        call_args = mock_openai_client.call_args
         assert call_args.kwargs["model"] == "gpt-4o"
         assert call_args.kwargs["temperature"] == 0.3
     
     @pytest.mark.asyncio
     async def test_call_llm_with_ticket_context(self, test_agent, mock_openai_client, sample_ticket):
         """_call_llm should include ticket context."""
-        response = await test_agent._call_llm(
+        await test_agent._call_llm(
             "Process this ticket",
             ticket=sample_ticket,
         )
         
-        call_args = mock_openai_client.chat.completions.create.call_args
+        call_args = mock_openai_client.call_args
         messages = call_args.kwargs["messages"]
         
         # User message should contain ticket info
@@ -294,12 +283,12 @@ class TestBaseAgentLLMCalls:
     @pytest.mark.asyncio
     async def test_call_llm_with_additional_context(self, test_agent, mock_openai_client):
         """_call_llm should include additional context."""
-        response = await test_agent._call_llm(
+        await test_agent._call_llm(
             "Process this",
             additional_context="Extra context here",
         )
         
-        call_args = mock_openai_client.chat.completions.create.call_args
+        call_args = mock_openai_client.call_args
         messages = call_args.kwargs["messages"]
         
         user_message = messages[1]["content"]
@@ -314,7 +303,7 @@ class TestBaseAgentLLMCalls:
         mock_message.content = '{"key": "value", "number": 42}'
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         result = await test_agent._call_llm_json("Return JSON")
         
@@ -328,7 +317,7 @@ class TestBaseAgentLLMCalls:
         mock_message.content = '```json\n{"key": "value"}\n```'
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         result = await test_agent._call_llm_json("Return JSON")
         
@@ -353,7 +342,6 @@ class TestBaseAgentToolCalls:
         """Should execute tools when LLM requests them."""
         agent = ConcreteTestAgent(
             name="tool_agent",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent with tools",
@@ -379,7 +367,7 @@ class TestBaseAgentToolCalls:
         second_message.tool_calls = None
         second_response.choices = [MagicMock(message=second_message)]
         
-        mock_openai_client.chat.completions.create.side_effect = [
+        mock_openai_client.side_effect = [
             first_response, second_response
         ]
         
@@ -397,7 +385,6 @@ class TestBaseAgentToolCalls:
         """Should execute tool directly via execute_tool method."""
         agent = ConcreteTestAgent(
             name="tool_agent",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent with tools",
@@ -416,7 +403,6 @@ class TestBaseAgentToolCalls:
         """Should return error for non-existent tool."""
         agent = ConcreteTestAgent(
             name="tool_agent",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent with tools",
@@ -446,14 +432,12 @@ class TestBaseAgentCommunication:
         # Create two agents
         agent1 = ConcreteTestAgent(
             name="agent1",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 1",
         )
-        agent2 = ConcreteTestAgent(
+        ConcreteTestAgent(
             name="agent2",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 2",
@@ -468,14 +452,12 @@ class TestBaseAgentCommunication:
         """Should hand off task to another agent."""
         agent1 = ConcreteTestAgent(
             name="agent1",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 1",
         )
-        agent2 = ConcreteTestAgent(
+        ConcreteTestAgent(
             name="agent2",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 2",
@@ -496,15 +478,13 @@ class TestBaseAgentCommunication:
         """Should broadcast update to all agents."""
         agent1 = ConcreteTestAgent(
             name="agent1",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 1",
         )
         # Create a second agent so broadcast has someone to send to
-        agent2 = ConcreteTestAgent(
+        ConcreteTestAgent(
             name="agent2",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Agent 2",
@@ -585,7 +565,6 @@ class TestScrumMasterAgent:
         """Create ScrumMasterAgent instance."""
         return ScrumMasterAgent(
             name="scrum_master",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Scrum Master.",
@@ -867,7 +846,6 @@ class TestProductOwnerAgent:
         """Create ProductOwnerAgent instance."""
         return ProductOwnerAgent(
             name="product_owner",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Product Owner.",
@@ -929,7 +907,7 @@ class TestProductOwnerAgent:
         })
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         # Save ticket first
         await product_owner.backlog.save_ticket(sample_ticket)
@@ -999,7 +977,7 @@ class TestProductOwnerAgent:
         })
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         await product_owner.backlog.save_ticket(sample_ticket)
         
@@ -1029,7 +1007,7 @@ class TestProductOwnerAgent:
         })
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         sample_ticket.status = TicketStatus.REVIEW
         sample_ticket.acceptance_criteria = ["AC1"]
@@ -1061,7 +1039,6 @@ class TestProductOwnerAgent:
         """Should handle case when no tools available."""
         product_owner = ProductOwnerAgent(
             name="product_owner",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Product Owner.",
@@ -1085,7 +1062,6 @@ class TestProductOwnerAgent:
         """Should handle case when no tools available."""
         product_owner = ProductOwnerAgent(
             name="product_owner",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Product Owner.",
@@ -1105,7 +1081,6 @@ class TestArchitectAgent:
         """Create ArchitectAgent instance."""
         return ArchitectAgent(
             name="architect",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Software-Architekt.",
@@ -1172,7 +1147,7 @@ class TestArchitectAgent:
         })
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         await architect.backlog.save_ticket(sample_ticket)
         
@@ -1232,7 +1207,6 @@ class TestArchitectAgent:
         # Create architect WITHOUT tools for simpler test
         architect = ArchitectAgent(
             name="architect",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Architekt.",
@@ -1251,7 +1225,7 @@ class TestArchitectAgent:
         })
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         sample_ticket.status = TicketStatus.REVIEW
         await architect.backlog.save_ticket(sample_ticket)
@@ -1278,7 +1252,6 @@ class TestFrontendDevAgent:
         """Create FrontendDevAgent instance."""
         return FrontendDevAgent(
             name="frontend_dev",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Frontend-Entwickler.",
@@ -1330,7 +1303,7 @@ class TestFrontendDevAgent:
         mock_message.content = "Implementation complete"
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         sample_ticket.status = TicketStatus.PLANNED
         await frontend_dev.backlog.save_ticket(sample_ticket)
@@ -1359,7 +1332,6 @@ class TestBackendDevAgent:
         """Create BackendDevAgent instance."""
         return BackendDevAgent(
             name="backend_dev",
-            client=mock_openai_client,
             backlog=backlog_manager,
             message_bus=message_bus,
             system_prompt="Du bist ein Backend-Entwickler.",
@@ -1411,7 +1383,7 @@ class TestBackendDevAgent:
         mock_message.content = "Implementation complete"
         mock_message.tool_calls = None
         mock_response.choices = [MagicMock(message=mock_message)]
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.return_value = mock_response
         
         sample_ticket.status = TicketStatus.PLANNED
         await backend_dev.backlog.save_ticket(sample_ticket)

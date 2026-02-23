@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
 
-from .chunker import CodeChunker, Chunk
+from .chunker import CodeChunker
 from .embeddings import EmbeddingService
 from .vectordb import VectorDB
 

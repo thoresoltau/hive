@@ -1,6 +1,5 @@
 """Tests for tool registry and base classes."""
 
-import pytest
 
 from tools.base import (
     Tool,
@@ -48,7 +47,7 @@ class TestToolResult:
             output={"data": "test"},
         )
         
-        assert result.success == True
+        assert result.success
 
     def test_success_property_false(self):
         """Should return False for error status."""
@@ -58,7 +57,7 @@ class TestToolResult:
             error="Something went wrong",
         )
         
-        assert result.success == False
+        assert not result.success
 
     def test_to_context_success(self):
         """Should format success result."""
@@ -113,7 +112,7 @@ class TestTool:
         tool = MockTool()
         valid, error = tool.validate_params(required_param="test")
         
-        assert valid == True
+        assert valid
         assert error is None
 
     def test_validate_params_missing(self):
@@ -121,7 +120,7 @@ class TestTool:
         tool = MockTool()
         valid, error = tool.validate_params()
         
-        assert valid == False
+        assert not valid
         assert "required_param" in error
 
     async def test_execute(self):

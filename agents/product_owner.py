@@ -134,7 +134,6 @@ class ProductOwnerAgent(BaseAgent):
                 related_files.append(f)
         
         # Also check for test files
-        test_patterns = ["tests/", "test_"]
         
         if not self.tools:
             return "Keine Tools verfügbar zum Lesen der Dateien."

@@ -1,10 +1,9 @@
 """MCP Tool wrappers for Hive Agent Swarm."""
 
-from typing import Optional, Any
 import logging
 
 from .base import Tool, ToolParameter, ToolResult, ToolResultStatus
-from core.mcp.protocol import MCPToolSchema, MCPToolResult
+from core.mcp.protocol import MCPToolSchema
 from core.mcp.client import MCPClient
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 
 from core.mcp.protocol import (
     MCPRequest,
@@ -10,11 +9,7 @@ from core.mcp.protocol import (
     MCPError,
     MCPToolSchema,
     MCPToolResult,
-    MCPResource,
-    MCPResourceContent,
-    MCPInitializeResult,
     MCPServerCapabilities,
-    MCPServerInfo,
 )
 from core.mcp.config import MCPServerConfig, load_mcp_config
 from core.mcp.client import MCPClient
@@ -80,9 +75,9 @@ class TestMCPProtocol:
         params = schema.get_parameters()
         assert len(params) == 2
         assert params[0].name == "library"
-        assert params[0].required == True
+        assert params[0].required
         assert params[1].name == "topic"
-        assert params[1].required == False
+        assert not params[1].required
 
     def test_mcp_tool_result(self):
         """Should parse tool result with text content."""
@@ -114,7 +109,7 @@ class TestMCPConfig:
         
         assert config.name == "test"
         assert config.transport == "http"
-        assert config.enabled == True
+        assert config.enabled
         assert config.connect_timeout == 30
         assert config.request_timeout == 120
 
@@ -185,8 +180,8 @@ mcp_servers:
         assert "test_server" in configs
         assert "disabled_server" in configs
         assert configs["test_server"].url == "https://test.com/mcp"
-        assert configs["test_server"].enabled == True
-        assert configs["disabled_server"].enabled == False
+        assert configs["test_server"].enabled
+        assert not configs["disabled_server"].enabled
 
 
 class TestMCPClient:
@@ -316,11 +311,11 @@ class TestMCPClientManager:
         
         manager._clients = {"server1": mock_client1, "server2": mock_client2}
         
-        with patch.object(manager, "connect", side_effect=[True, True]) as mock_connect:
+        with patch.object(manager, "connect", side_effect=[True, True]):
             results = await manager.connect_all()
         
-        assert results["server1"] == True
-        assert results["server2"] == True
+        assert results["server1"]
+        assert results["server2"]
 
     def test_load_from_config(self, tmp_path):
         """Should load servers from config file."""
@@ -375,8 +370,7 @@ class TestMCPTool:
     def test_mcp_tool_creation(self, mock_client, tool_schema):
         """Should create MCPTool from schema."""
         tool = MCPTool(
-            mcp_client=mock_client,
-            tool_schema=tool_schema,
+            mcp_tool_schema=tool_schema,
             server_name="context7",
         )
         
@@ -386,10 +380,10 @@ class TestMCPTool:
         
         # Check parameter conversion
         lib_param = next(p for p in tool.parameters if p.name == "library")
-        assert lib_param.required == True
+        assert lib_param.required
         
         topic_param = next(p for p in tool.parameters if p.name == "topic")
-        assert topic_param.required == False
+        assert not topic_param.required
 
     async def test_mcp_tool_execute_success(self, mock_client, tool_schema):
         """Should execute MCP tool and return result."""
@@ -522,5 +516,5 @@ class TestToolRegistryMCP:
         
         result = registry.unregister("read_file")
         
-        assert result == True
+        assert result
         assert registry.get("read_file") is None

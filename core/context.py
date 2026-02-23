@@ -1,8 +1,7 @@
 """Context management for project-aware agent interactions."""
 
-import os
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 

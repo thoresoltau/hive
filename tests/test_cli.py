@@ -1,11 +1,10 @@
 import pytest
 import os
-from pathlib import Path
 from typer.testing import CliRunner
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Import app logic
-from cli import app, get_project_path, HiveNotInitializedError
+from cli import app
 
 runner = CliRunner()
 

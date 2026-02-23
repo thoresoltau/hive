@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-from pathlib import Path
 from typing import Optional
 
 from .base import Tool, ToolResult, ToolParameter, ToolResultStatus

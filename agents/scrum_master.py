@@ -7,7 +7,6 @@ from core.models import (
     AgentMessage,
     AgentResponse,
     TicketStatus,
-    Priority,
 )
 
 

@@ -1,13 +1,11 @@
 """Human-readable logging for Hive Agent Swarm."""
 
 import logging
-import sys
 from datetime import datetime
 from typing import Optional
 from enum import Enum
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
 from rich.table import Table
 from rich.logging import RichHandler
 

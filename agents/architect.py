@@ -166,7 +166,6 @@ class ArchitectAgent(BaseAgent):
         next_agent = self._determine_developer(analysis.get("affected_areas", []))
         
         # Determine ADR status
-        action_taken = "technical_analysis_complete"
         adr_file = None
         
         # ADR Trigger Logik restoration (captured in local vars)
@@ -357,7 +356,7 @@ class ArchitectAgent(BaseAgent):
             )
         
         estimation = await self._call_llm_json(
-            user_message=f"""
+            user_message="""
             Schätze die Komplexität und den Aufwand für dieses Ticket.
             
             Berücksichtige:
@@ -366,12 +365,12 @@ class ArchitectAgent(BaseAgent):
             - Potenzielle Risiken
             
             Antworte mit JSON:
-            {{
+            {
                 "complexity": "low|medium|high",
                 "story_points": 1-13,
                 "reasoning": "Begründung der Schätzung",
                 "confidence": "low|medium|high"
-            }}
+            }
             """,
             ticket=ticket,
         )

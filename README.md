@@ -319,14 +319,29 @@ agents:
       Du bist ein erfahrener Scrum Master...
 ```
 
-### Modell wechseln
+### Provider & Modell wechseln (LiteLLM)
 
-In `.env`:
+Hive nutzt im Hintergrund `litellm` und unterstützt so nativ **OpenAI**, **Anthropic**, **Gemini**, **Mistral** und viele weitere Modelle. Das gewünschte Modell wird mittels Provider-Präfix in der `.env` definiert, LiteLLM kümmert sich um die korrekte Übersetzung.
 
-```
+**1. OpenAI (Standard)**
+```env
 OPENAI_API_KEY=sk-...
 MODEL_NAME=gpt-4o          # Für komplexe Aufgaben
-MODEL_NAME_FAST=gpt-4o-mini # Für einfache Aufgaben
+MODEL_NAME_FAST=gpt-4o-mini # Für einfache Aufgaben (z.B. Commit Messages)
+```
+
+**2. Google Gemini**
+```env
+GEMINI_API_KEY=AIzaSy...
+MODEL_NAME=gemini/gemini-1.5-pro     # Für komplexe Aufgaben
+MODEL_NAME_FAST=gemini/gemini-1.5-flash
+```
+
+**3. Anthropic Claude**
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+MODEL_NAME=anthropic/claude-3-5-sonnet-20241022
+MODEL_NAME_FAST=anthropic/claude-3-haiku-20240307
 ```
 
 ## � Verfügbare Tools

@@ -1,7 +1,6 @@
 """Tests for git operation tools."""
 
 import pytest
-from pathlib import Path
 
 from tools.git_ops import (
     GitStatusTool,
@@ -117,7 +116,7 @@ class TestGitCommitTool:
         result = await tool.execute(message="Add new file")
         
         assert result.success
-        assert result.output["committed"] == True
+        assert result.output["committed"]
         assert "hash" in result.output
 
     async def test_commit_with_ticket_id(self, tool, temp_git_repo):
@@ -137,7 +136,7 @@ class TestGitCommitTool:
         result = await tool.execute(message="Empty commit")
         
         assert result.success
-        assert result.output["committed"] == False
+        assert not result.output["committed"]
 
     async def test_commit_specific_files(self, tool, temp_git_repo):
         """Should commit only specified files."""

@@ -4,7 +4,6 @@ Test-Lauf der Hive Agents für test-hive-project.
 """
 
 import asyncio
-import os
 from pathlib import Path
 from rich.console import Console
 from dotenv import load_dotenv
@@ -60,8 +59,8 @@ async def run_test():
     
     try:
         # Run one cycle to process the first ticket
-        result = await orchestrator.run(max_cycles=3)
-        console.print(f"\n[green]✅ Run completed![/green]")
+        await orchestrator.run(max_cycles=3)
+        console.print("\n[green]✅ Run completed![/green]")
     except Exception as e:
         console.print(f"\n[red]Error: {e}[/red]")
         raise

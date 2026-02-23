@@ -1,8 +1,6 @@
 import json
-import os
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from core.activity_logger import ActivityLogger, get_activity_logger
 
 class TestActivityLogger:

@@ -1,7 +1,6 @@
 """Tests for shell operation tools."""
 
 import pytest
-from pathlib import Path
 
 from tools.shell_ops import RunCommandTool, is_command_allowed
 from tools.base import ToolResultStatus

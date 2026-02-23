@@ -4,7 +4,7 @@ RAG Search Tool for Hive Agents.
 Provides semantic search capability over the codebase.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
 from tools.base import Tool, ToolResult, ToolResultStatus, ToolParameter
 

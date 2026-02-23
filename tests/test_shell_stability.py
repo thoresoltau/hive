@@ -1,6 +1,5 @@
 
 import pytest
-import asyncio
 from tools.shell_ops import RunCommandTool, ToolResultStatus
 
 @pytest.mark.asyncio

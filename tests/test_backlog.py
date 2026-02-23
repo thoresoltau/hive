@@ -1,10 +1,9 @@
 """Tests for backlog management."""
 
 import pytest
-from pathlib import Path
 
 from core.backlog import BacklogManager
-from core.models import TicketStatus, TicketType, Priority
+from core.models import TicketStatus, Priority
 
 
 class TestBacklogManager:

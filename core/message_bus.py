@@ -1,8 +1,6 @@
 """Message bus for inter-agent communication."""
 
 import asyncio
-from collections import defaultdict
-from datetime import datetime
 from typing import Callable, Optional, Any
 from dataclasses import dataclass, field
 

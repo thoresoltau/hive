@@ -1,7 +1,7 @@
 """MCP Transport implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Any, AsyncIterator
+from typing import Optional, Any
 import asyncio
 import json
 import logging

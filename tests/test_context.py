@@ -1,13 +1,11 @@
 """Tests for context management."""
 
 import pytest
-from pathlib import Path
 
 from core.context import (
     ContextManager,
     ProjectConfig,
     TechStack,
-    CodeConventions,
 )
 
 

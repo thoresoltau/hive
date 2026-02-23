@@ -1,9 +1,8 @@
 
-from datetime import datetime, timedelta
-from typing import Any, Optional
+from datetime import datetime
 from collections import deque
 
-from core.models import AgentMessage, AgentResponse, MessageType
+from core.models import AgentMessage, MessageType
 from .base_agent import BaseAgent
 
 class ObserverAgent(BaseAgent):

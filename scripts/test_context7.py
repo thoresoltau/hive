@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.mcp.config import MCPServerConfig
 from core.mcp.client import MCPClient
 from core.mcp.manager import MCPClientManager
-from tools.mcp_ops import MCPToolFactory
 from tools.base import ToolRegistry
 
 
@@ -51,7 +50,7 @@ async def test_context7_connection():
             "libraryName": "react"
         })
         if not result.is_error:
-            print(f"   ✅ Success! Result preview:")
+            print("   ✅ Success! Result preview:")
             text = result.get_text()[:300]
             print(f"      {text}...")
         else:
