@@ -78,6 +78,11 @@ class ArchitectAgent(BaseAgent):
 
             {additional_context}
 
+            IMPORTANT: If your analysis introduces a new architectural decision, pattern, or
+            technology, you MUST use the `update_context` tool to memorize it. This ensures
+            other agents are aware of the new technical context. You can also use the
+            `propose_adr` tool to initiate a formal Architecture Decision Record if needed.
+
             Create:
             1. List of affected areas
             2. Required Dependencies
@@ -102,11 +107,27 @@ class ArchitectAgent(BaseAgent):
                 "complexity": "low|medium|high",
                 "story_points": 1-13,
                 "risks": ["Risiko 1", "Risiko 2"],
-                "architectural_notes": "Important architectural decisions"
+                "architectural_notes": "Important architectural decisions",
+                "context_updates": {{
+                    "important_files": [],
+                    "architecture_notes": "",
+                    "test_commands": {{}}
+                }} // Optional: populate to update the global project.yaml context
             }}
             """,
             ticket=ticket,
         )
+
+        # Update context if requested
+        context_updates = analysis.get("context_updates")
+        if context_updates and self.tools and "update_context" in self.tools:
+            try:
+                # Only pass non-empty values to avoid wiping out existing
+                updates_to_apply = {k: v for k, v in context_updates.items() if v}
+                if updates_to_apply:
+                    await self.tools["update_context"].execute(**updates_to_apply)
+            except Exception as e:
+                self.log.error(f"Failed to apply context updates: {e}")
 
         # Update ticket with technical context
         ticket.technical_context = TechnicalContext(

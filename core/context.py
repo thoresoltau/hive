@@ -22,7 +22,7 @@ class TechStack:
     frameworks: list[str] = field(default_factory=list)
     databases: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
-    
+
     def to_context(self) -> str:
         """Format for LLM context."""
         parts = []
@@ -44,7 +44,7 @@ class CodeConventions:
     naming_conventions: dict[str, str] = field(default_factory=dict)
     file_structure: dict[str, str] = field(default_factory=dict)
     testing_strategy: Optional[str] = None
-    
+
     def to_context(self) -> str:
         """Format for LLM context."""
         parts = []
@@ -64,29 +64,30 @@ class ProjectConfig:
     name: str
     description: str = ""
     version: str = "0.1.0"
-    
+
     # Technical details
     tech_stack: TechStack = field(default_factory=TechStack)
     conventions: CodeConventions = field(default_factory=CodeConventions)
-    
+
     # Project structure
     source_dirs: list[str] = field(default_factory=lambda: ["src"])
     test_dirs: list[str] = field(default_factory=lambda: ["tests"])
     doc_dirs: list[str] = field(default_factory=lambda: ["docs"])
-    
+
     # Agent behavior
     default_branch: str = "main"
     ticket_prefix: str = "TICKET"
     auto_commit: bool = True
-    
+    test_commands: dict[str, str] = field(default_factory=dict)
+
     # Additional context
     important_files: list[str] = field(default_factory=list)
     architecture_notes: str = ""
-    
+
     # Metadata
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for YAML serialization."""
         return {
@@ -114,6 +115,7 @@ class ProjectConfig:
                 "default_branch": self.default_branch,
                 "ticket_prefix": self.ticket_prefix,
                 "auto_commit": self.auto_commit,
+                "test_commands": self.test_commands,
             },
             "context": {
                 "important_files": self.important_files,
@@ -124,7 +126,7 @@ class ProjectConfig:
                 "updated_at": self.updated_at,
             },
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ProjectConfig":
         """Create from dictionary."""
@@ -134,7 +136,7 @@ class ProjectConfig:
         agent = data.get("agent_config", {})
         ctx = data.get("context", {})
         meta = data.get("metadata", {})
-        
+
         return cls(
             name=data.get("name", "Unknown"),
             description=data.get("description", ""),
@@ -157,12 +159,13 @@ class ProjectConfig:
             default_branch=agent.get("default_branch", "main"),
             ticket_prefix=agent.get("ticket_prefix", "TICKET"),
             auto_commit=agent.get("auto_commit", True),
+            test_commands=agent.get("test_commands", {}),
             important_files=ctx.get("important_files", []),
             architecture_notes=ctx.get("architecture_notes", ""),
             created_at=meta.get("created_at", datetime.now().isoformat()),
             updated_at=meta.get("updated_at", datetime.now().isoformat()),
         )
-    
+
     def to_context(self) -> str:
         """Format full project context for LLM."""
         return f"""## Project: {self.name}
@@ -196,14 +199,14 @@ You are already in the project directory. Do NOT use project name prefixes!
 class ContextManager:
     """
     Manages project context for agents.
-    
+
     Provides:
     - Project configuration from .hive/project.yaml
     - Architecture documentation from ARCHITECTURE.md
     - ADRs (Architecture Decision Records)
     - Dynamic context based on current work
     """
-    
+
     def __init__(self, project_path: str | Path):
         self.project_path = Path(project_path)
         self.hive_path = self.project_path / HIVE_DIR
@@ -211,12 +214,12 @@ class ContextManager:
         self._config: Optional[ProjectConfig] = None
         self._architecture: Optional[str] = None
         self._adrs: dict[str, str] = {}
-    
+
     @property
     def is_initialized(self) -> bool:
         """Check if project has .hive directory."""
         return self.config_path.exists()
-    
+
     async def initialize(
         self,
         name: str,
@@ -226,7 +229,7 @@ class ContextManager:
     ) -> ProjectConfig:
         """
         Initialize a new .hive project configuration.
-        
+
         Creates:
         - .hive/project.yaml
         - docs/adr/ directory
@@ -236,17 +239,17 @@ class ContextManager:
                 f"Project already initialized at {self.hive_path}. "
                 "Use force=True to overwrite."
             )
-        
+
         # Create directories
         self.hive_path.mkdir(parents=True, exist_ok=True)
         (self.project_path / ADR_DIR).mkdir(parents=True, exist_ok=True)
-        
+
         # Create config
         config = ProjectConfig(
             name=name,
             description=description,
         )
-        
+
         if tech_stack:
             config.tech_stack = TechStack(
                 languages=tech_stack.get("languages", []),
@@ -254,19 +257,19 @@ class ContextManager:
                 databases=tech_stack.get("databases", []),
                 tools=tech_stack.get("tools", []),
             )
-        
+
         # Auto-detect some settings
         config = await self._auto_detect(config)
-        
+
         # Save config
         await self._save_config(config)
         self._config = config
-        
+
         # Create initial ADR template
         await self._create_adr_template()
-        
+
         return config
-    
+
     async def _auto_detect(self, config: ProjectConfig) -> ProjectConfig:
         """Auto-detect project settings from files."""
         # Detect languages from file extensions
@@ -276,7 +279,7 @@ class ContextManager:
                 ext = pattern.split("*")[-1]
                 extensions.add(ext)
                 break
-        
+
         lang_map = {
             ".py": "Python",
             ".js": "JavaScript",
@@ -284,11 +287,14 @@ class ContextManager:
             ".go": "Go",
             ".rs": "Rust",
         }
-        
+
         detected_langs = [lang_map[ext] for ext in extensions if ext in lang_map]
-        if detected_langs and not config.tech_stack.languages:
-            config.tech_stack.languages = detected_langs
-        
+        if detected_langs:
+            # Merge instead of overwrite
+            for lang in detected_langs:
+                if lang not in config.tech_stack.languages:
+                    config.tech_stack.languages.append(lang)
+
         # Detect frameworks from config files
         framework_indicators = {
             "package.json": ["React", "Vue", "Next.js", "Express"],
@@ -296,12 +302,12 @@ class ContextManager:
             "pyproject.toml": ["FastAPI", "Django"],
             "Cargo.toml": ["Actix", "Rocket"],
         }
-        
+
         for config_file, frameworks in framework_indicators.items():
             if (self.project_path / config_file).exists():
                 # Could parse file to detect specific framework
                 pass
-        
+
         # Detect important files
         important_patterns = [
             "README.md",
@@ -310,17 +316,38 @@ class ContextManager:
             "docker-compose.yml",
             "Dockerfile",
         ]
-        
+
         for pattern in important_patterns:
             if (self.project_path / pattern).exists():
-                config.important_files.append(pattern)
-        
+                if pattern not in config.important_files:
+                    config.important_files.append(pattern)
+
         return config
-    
+
+    async def refresh(self) -> Optional[ProjectConfig]:
+        """
+        Refresh the project configuration by safely running auto-detect
+        and merging any newly discovered patterns or languages without
+        destroying the existing project context.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Project is not initialized. Run 'hive infest' first.")
+
+        config = await self.load()
+        if not config:
+            return None
+
+        # Auto-detect merges carefully on top of the loaded config
+        updated_config = await self._auto_detect(config)
+        await self._save_config(updated_config)
+
+        self._config = updated_config
+        return updated_config
+
     async def _save_config(self, config: ProjectConfig) -> None:
         """Save configuration to .hive/project.yaml."""
         config.updated_at = datetime.now().isoformat()
-        
+
         async with aiofiles.open(self.config_path, "w") as f:
             await f.write(yaml.dump(
                 config.to_dict(),
@@ -328,11 +355,11 @@ class ContextManager:
                 allow_unicode=True,
                 sort_keys=False,
             ))
-    
+
     async def _create_adr_template(self) -> None:
         """Create ADR template and index."""
         adr_path = self.project_path / ADR_DIR
-        
+
         # Create template
         template = """# ADR-{number}: {title}
 
@@ -352,12 +379,12 @@ class ContextManager:
 Date: {date}
 Author: {author}
 """
-        
+
         template_path = adr_path / "TEMPLATE.md"
         if not template_path.exists():
             async with aiofiles.open(template_path, "w") as f:
                 await f.write(template)
-        
+
         # Create index
         index = """# Architecture Decision Records
 
@@ -376,17 +403,17 @@ This directory contains Architecture Decision Records (ADRs) for the project.
 3. Fill out the template
 4. Update this index
 """
-        
+
         index_path = adr_path / "README.md"
         if not index_path.exists():
             async with aiofiles.open(index_path, "w") as f:
                 await f.write(index)
-    
+
     async def load(self) -> Optional[ProjectConfig]:
         """Load project configuration."""
         if not self.is_initialized:
             return None
-        
+
         try:
             async with aiofiles.open(self.config_path) as f:
                 content = await f.read()
@@ -396,41 +423,41 @@ This directory contains Architecture Decision Records (ADRs) for the project.
         except Exception as e:
             print(f"Error loading config: {e}")
             return None
-    
+
     async def update(self, **kwargs) -> ProjectConfig:
         """Update project configuration."""
         if not self._config:
             await self.load()
-        
+
         if not self._config:
             raise RuntimeError("Project not initialized")
-        
+
         for key, value in kwargs.items():
             if hasattr(self._config, key):
                 setattr(self._config, key, value)
-        
+
         await self._save_config(self._config)
         return self._config
-    
+
     async def get_architecture(self) -> Optional[str]:
         """Load ARCHITECTURE.md if exists."""
         arch_path = self.project_path / ARCHITECTURE_FILE
         if not arch_path.exists():
             return None
-        
+
         try:
             async with aiofiles.open(arch_path) as f:
                 self._architecture = await f.read()
                 return self._architecture
         except Exception:
             return None
-    
+
     async def get_adrs(self) -> dict[str, str]:
         """Load all ADRs."""
         adr_path = self.project_path / ADR_DIR
         if not adr_path.exists():
             return {}
-        
+
         adrs = {}
         for adr_file in adr_path.glob("ADR-*.md"):
             try:
@@ -438,28 +465,28 @@ This directory contains Architecture Decision Records (ADRs) for the project.
                     adrs[adr_file.stem] = await f.read()
             except Exception:
                 continue
-        
+
         self._adrs = adrs
         return adrs
-    
+
     async def get_full_context(self) -> str:
         """
         Get complete project context for agents.
-        
+
         Combines:
         - Project configuration
         - Architecture documentation
         - Recent ADRs
         """
         parts = []
-        
+
         # Load config if needed
         if not self._config:
             await self.load()
-        
+
         if self._config:
             parts.append(self._config.to_context())
-        
+
         # Architecture
         arch = await self.get_architecture()
         if arch:
@@ -467,20 +494,20 @@ This directory contains Architecture Decision Records (ADRs) for the project.
             if len(arch) > 3000:
                 arch = arch[:3000] + "\n... (truncated)"
             parts.append(f"## Architektur-Dokumentation\n{arch}")
-        
+
         # Recent ADRs (last 3)
         adrs = await self.get_adrs()
         if adrs:
             recent = list(adrs.items())[-3:]
             adr_summary = "\n\n".join(
-                f"### {name}\n{content[:500]}..." 
+                f"### {name}\n{content[:500]}..."
                 if len(content) > 500 else f"### {name}\n{content}"
                 for name, content in recent
             )
             parts.append(f"## Aktuelle ADRs\n{adr_summary}")
-        
+
         return "\n\n---\n\n".join(parts) if parts else "No project context available."
-    
+
     @property
     def config(self) -> Optional[ProjectConfig]:
         """Get current config (may be None if not loaded)."""

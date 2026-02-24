@@ -27,7 +27,7 @@ class ToolResult:
     def to_context(self) -> str:
         """Format result for LLM context."""
         if self.status == ToolResultStatus.ERROR:
-            return f"❌ Fehler: {self.error}"
+            return f"❌ Error: {self.error}"
         return str(self.output)
 
 
@@ -45,14 +45,14 @@ class ToolParameter:
 class Tool(ABC):
     """
     Abstract base class for all tools.
-    
+
     Tools provide concrete capabilities to agents:
     - File operations (read, write, edit)
     - Git operations
     - Code analysis
     - External API calls
     """
-    
+
     name: str = "base_tool"
     description: str = "Base tool"
     parameters: list[ToolParameter] = []
@@ -69,7 +69,7 @@ class Tool(ABC):
         """Get OpenAI function schema for this tool."""
         properties = {}
         required = []
-        
+
         for param in self.parameters:
             prop_schema = {
                 "type": param.type,
@@ -78,11 +78,11 @@ class Tool(ABC):
             # Add items schema for array types
             if param.type == "array":
                 prop_schema["items"] = {"type": param.items_type or "string"}
-            
+
             properties[param.name] = prop_schema
             if param.required:
                 required.append(param.name)
-        
+
         return {
             "type": "function",
             "function": {
@@ -106,7 +106,7 @@ class Tool(ABC):
 
 class ToolRegistry:
     """Registry for available tools."""
-    
+
     def __init__(self):
         self._tools: dict[str, Tool] = {}
 
@@ -152,7 +152,8 @@ class ToolRegistry:
             GitCheckoutFileTool,
         )
         from .shell_ops import RunCommandTool
-        
+        from .context_ops import UpdateContextTool
+
         # File tools
         self.register(ReadFileTool(workspace_path))
         self.register(WriteFileTool(workspace_path))
@@ -163,7 +164,7 @@ class ToolRegistry:
         self.register(MoveFileTool(workspace_path))
         self.register(AppendFileTool(workspace_path))
         self.register(CreateDirectoryTool(workspace_path))
-        
+
         # Git tools
         self.register(GitStatusTool(workspace_path))
         self.register(GitBranchTool(workspace_path))
@@ -175,17 +176,20 @@ class ToolRegistry:
         self.register(GitPullTool(workspace_path))
         self.register(GitResetTool(workspace_path))
         self.register(GitCheckoutFileTool(workspace_path))
-        
+
         # Shell tools
         self.register(RunCommandTool(workspace_path))
-    
+
+        # Context tools
+        self.register(UpdateContextTool(workspace_path))
+
     def register_rag_tool(self, workspace_path: Optional[str] = None) -> bool:
         """
         Register RAG search tool (optional, requires indexed codebase).
-        
+
         Args:
             workspace_path: Path to workspace with .hive/vectordb
-            
+
         Returns:
             True if registration successful
         """
@@ -200,31 +204,31 @@ class ToolRegistry:
     async def register_mcp_tools(self, mcp_manager) -> int:
         """
         Register tools from connected MCP servers.
-        
+
         Args:
             mcp_manager: MCPClientManager instance
-            
+
         Returns:
             Number of MCP tools registered
         """
         from .mcp_ops import MCPToolFactory
-        
+
         factory = MCPToolFactory(mcp_manager)
         all_tools = await factory.create_all_tools()
-        
+
         count = 0
         for server_name, tools in all_tools.items():
             for tool in tools:
                 self.register(tool)
                 count += 1
-        
+
         return count
-    
+
     def get_mcp_tools(self) -> list:
         """Get all registered MCP tools."""
         from .mcp_ops import MCPTool
         return [t for t in self._tools.values() if isinstance(t, MCPTool)]
-    
+
     def unregister(self, name: str) -> bool:
         """Unregister a tool by name."""
         if name in self._tools:

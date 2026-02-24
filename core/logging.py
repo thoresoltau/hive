@@ -6,6 +6,7 @@ from typing import Optional
 from enum import Enum
 from rich.console import Console
 from rich.panel import Panel
+from rich.padding import Padding
 from rich.table import Table
 from rich.logging import RichHandler
 
@@ -34,6 +35,10 @@ logging.basicConfig(
 # Suppress noisy loggers
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
+import litellm
+litellm.suppress_debug_info = True
 
 
 class HiveLogger:
@@ -56,6 +61,17 @@ class HiveLogger:
         "frontend_dev": "DRONE",
         "backend_dev": "ROACH",
         "observer": "OVERLORD",
+    }
+
+    SILENT_TOOLS = {
+        "list_directory",
+        "read_file",
+        "view_file",
+        "search_code",
+        "read_ticket",
+        "get_context",
+        "git_status",
+        "read_website"
     }
 
     def __init__(self, verbose: bool = True, workspace_path: Optional[str] = None):
@@ -154,6 +170,22 @@ class HiveLogger:
         if self.verbose:
             console.print(f"{self._indent()}[dim]💭 {task}[/dim]")
 
+    def agent_thoughts(self, text: str):
+        """Log agent's internal monologue/thoughts."""
+        if self.verbose and text and text.strip():
+            # Create a subtle, dimmed panel for the agent's thoughts
+            panel = Panel(
+                f"[dim]{text.strip()}[/dim]",
+                title="[dim italic]Thoughts[/dim italic]",
+                title_align="left",
+                border_style="dim",
+                padding=(0, 1)
+            )
+            if self.indent_level > 0:
+                console.print(Padding(panel, (0, 0, 0, self.indent_level * 2)))
+            else:
+                console.print(panel)
+
     def agent_decision(self, decision: str):
         """Log agent decision."""
         console.print(f"{self._indent()}[yellow]→ {decision}[/yellow]")
@@ -181,7 +213,7 @@ class HiveLogger:
     def tool_call(self, tool_name: str, args: dict):
         """Log tool being called."""
         # Note: actual tool_call logging with success is done in tool_result
-        if self.verbose:
+        if self.verbose and tool_name not in self.SILENT_TOOLS:
             # Format args nicely
             args_str = ", ".join(f"{k}={repr(v)[:30]}" for k, v in list(args.items())[:3])
             if len(args) > 3:
@@ -198,6 +230,9 @@ class HiveLogger:
             error=output_preview if not success else None,
         )
         if self.verbose:
+            if tool_name in self.SILENT_TOOLS and success:
+                return  # Skip displaying successful passive tools to reduce noise
+
             icon = "✓" if success else "✗"
             style = "green" if success else "red"
             preview = f": {output_preview[:50]}..." if output_preview else ""

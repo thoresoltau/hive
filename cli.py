@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Hive Swarm - A digital Zerg swarm, controlled by AI agents.
+Hive - A digital swarm, autonomously developing your project.
 
 Usage:
-    hive infest                # Settle the Zerg swarm in the current directory
-    hive hatch                 # Hatch a new larva/ticket
+    hive infest                # Settle the swarm in the current directory
+    hive hatch                 # Hatch a new ticket
     hive swarm                 # Unleash the swarm
     hive swarm TICKET-ID      # Direct the swarm to a specific target (ticket)
     hive pulse                 # Feel the pulse of the swarm (backlog status)
@@ -24,7 +24,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 
-app = typer.Typer(help="Hive Swarm - A digital Zerg swarm, controlled by AI agents")
+app = typer.Typer(help="Hive - A digital swarm, autonomously developing your project.")
 console = Console()
 
 # Package directory (where default configs are stored)
@@ -54,7 +54,7 @@ def get_project_path() -> Path:
             return parent
 
     raise HiveNotInitializedError(
-        "No Hive project found. Run 'hive init'."
+        "No Hive project found. Run 'hive infest'."
     )
 
 
@@ -121,7 +121,7 @@ def infest(
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing configuration"),
 ):
     """
-    Infests (initializes) the current directory for the Hive.
+    Initializes the current directory for the Hive.
 
     Creates .hive/ with project configuration.
     """
@@ -203,9 +203,9 @@ def swarm(
 
     project = get_project_path()
     if ticket_id:
-        console.print(f"[blue]🐝 Swarm is attacking (Ticket {ticket_id}) auf {project}[/blue]\n")
+        console.print(f"[blue]🦑 Swarm is evolving (Ticket {ticket_id}) on {project}[/blue]\n")
     else:
-        console.print(f"[blue]🐝 Swarm awakens (backlog) on {project}[/blue]\n")
+        console.print(f"[blue]🦑 Swarm is spawning on {project}[/blue]\n")
     asyncio.run(_run())
 
 
@@ -243,9 +243,9 @@ def stop():
 @app.command("hatch")
 @require_initialized
 def hatch():
-    """Hatches a new ticket/larva interactively."""
+    """Hatches a new ticket interactively."""
 
-    console.print("\n[bold blue]Hatch a new larva/ticket[/bold blue]\n")
+    console.print("\n[bold blue]Hatch a new ticket[/bold blue]\n")
 
     # Auto-generate ticket ID
     tickets_dir = get_tickets_dir()
@@ -264,7 +264,7 @@ def hatch():
     ticket_id = Prompt.ask("Ticket ID", default=default_id)
     title = Prompt.ask("Title")
 
-    console.print("\nTypees: feature, bug, refactor, chore, spike")
+    console.print("\nTypes: feature, bug, refactor, chore, spike")
     ticket_type = Prompt.ask("Type", default="feature")
 
     console.print("\nPriorities: critical, high, medium, low")
@@ -299,7 +299,7 @@ description: |
 @app.command(name="pulse")
 @require_initialized
 def pulse():
-    """Shows the pulse (status) of the Hive."""
+    """Shows the status of the hatchery."""
     tickets_dir = get_tickets_dir()
 
     if not tickets_dir.exists():
@@ -309,7 +309,7 @@ def pulse():
     ticket_files = list(tickets_dir.glob("*.yaml"))
 
     if not ticket_files:
-        console.print("[yellow]No tickets in backlog.[/yellow]")
+        console.print("[yellow]No tickets in hatchery.[/yellow]")
         return
 
     import yaml
@@ -505,6 +505,32 @@ def trails(
             console.print(f"[green]{entry}[/green]")
         else:
             console.print(entry)
+
+
+@app.command(name="refresh")
+@app.command(name="update", hidden=True)
+@require_initialized
+def refresh():
+    """Safely regenerate context config and detect new frameworks."""
+    import asyncio
+    from core.context import ContextManager
+
+    project_dir = get_project_path()
+
+    async def _run():
+        ctx = ContextManager(project_dir)
+        try:
+            config = await ctx.refresh()
+            if config:
+                console.print(f"[green]✓ Swarm context refreshed successfully![/green]")
+                console.print(f"[dim]Detected Tech Stack:[/dim] {', '.join(config.tech_stack.languages) if config.tech_stack.languages else 'None'}")
+            else:
+                console.print("[red]✗ Failed to load or refresh config.[/red]")
+        except Exception as e:
+            console.print(f"[red]Error during refresh: {e}[/red]")
+
+    console.print(f"[blue]🔄 Refreshing swarm configuration on {project_dir}...[/blue]")
+    asyncio.run(_run())
 
 
 @app.command(name="observe")

@@ -189,7 +189,8 @@ class BaseAgent(ABC):
 
         response = await acompletion(**kwargs)
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        return content if content is not None else ""
 
     async def _call_llm_json(
         self,
@@ -204,6 +205,9 @@ class BaseAgent(ABC):
             additional_context=additional_context,
         )
 
+        if not response:
+            return {}
+
         # Clean response
         response = response.strip()
         if response.startswith("```json"):
@@ -213,7 +217,11 @@ class BaseAgent(ABC):
         if response.endswith("```"):
             response = response[:-3]
 
-        return json.loads(response.strip())
+        try:
+            return json.loads(response.strip())
+        except json.JSONDecodeError:
+            self.log.error(f"Failed to parse JSON from LLM response: {response}")
+            return {}
 
     async def _call_llm_with_tools(
         self,
@@ -268,6 +276,10 @@ class BaseAgent(ABC):
             # Using model_dump() or dict cast if available
             msg_dict = assistant_message.model_dump() if hasattr(assistant_message, "model_dump") else dict(assistant_message)
             messages.append(msg_dict)
+
+            # Log agent thoughts if present
+            if assistant_message.content:
+                self.log.agent_thoughts(assistant_message.content)
 
             # Check if we're done (no tool calls)
             if not assistant_message.tool_calls:
@@ -510,13 +522,80 @@ class BaseAgent(ABC):
         # Branch existiert bereits → wechseln
         error_str = str(result.error) if result.error else ""
         if "existiert bereits" in error_str or "already exists" in error_str:
+            run_cmd = self.tools.get("run_command")
+            stashed = False
+
+            # Stash if we have local changes
+            if run_cmd:
+                status_res = await run_cmd.execute(command="git status --porcelain")
+                if status_res.success and status_res.output and str(status_res.output).strip():
+                    self.log.info("Local changes detected. Stashing before branch switch.")
+                    await run_cmd.execute(command="git stash")
+                    stashed = True
+
             switch_result = await git_branch.execute(branch_name=branch_name, action="switch")
+
+            # Pop stash if we stashed
+            if stashed and run_cmd:
+                self.log.info("Popping stashed changes after branch switch.")
+                await run_cmd.execute(command="git stash pop")
+
             if switch_result.success:
                 self.log.info(f"Zu Branch '{branch_name}' switched")
                 return True
+            else:
+                self.log.warning(f"Branch switch failed: {switch_result.error}")
+                return False
 
         self.log.warning(f"Branch operation failed: {result.error}")
         return False
+
+    async def _get_test_commands(self) -> dict[str, str]:
+        """
+        Get the configured test commands from project.yaml or auto-detect based on workspace files.
+        Returns a dictionary of names to commands.
+        """
+        test_commands = {}
+        try:
+            from core.context import ContextManager
+            # Assuming current directory is workspace for the agent
+            ctx = ContextManager(".")
+            config = await ctx.load()
+            if config and getattr(config, "test_commands", None):
+                return config.test_commands
+        except Exception as e:
+            self.log.debug(f"Failed to read test_commands from context: {e}")
+
+        # Fallback to auto-detection
+        if self.tools:
+            list_dir = self.tools.get("list_directory")
+            if list_dir:
+                try:
+                    ls_res = await list_dir.execute(path=".")
+                    if ls_res.success and ls_res.output:
+                        files = str(ls_res.output)
+                        # Build a dictionary instead of a single string
+                        if "package.json" in files:
+                            test_commands["frontend"] = "npm test"
+                        if "composer.json" in files:
+                            test_commands["backend"] = "composer test"
+                        elif "pom.xml" in files:
+                            test_commands["backend"] = "mvn test"
+                        elif "build.gradle" in files:
+                            test_commands["backend"] = "gradle test"
+                        elif "go.mod" in files:
+                            test_commands["backend"] = "go test ./..."
+
+                        if "pytest" in files or "requirements.txt" in files or "Pipfile" in files or "pyproject.toml" in files:
+                            test_commands["backend"] = "pytest --tb=short -q"
+                except Exception:
+                    pass
+
+        # Ultimate fallback
+        if not test_commands:
+            test_commands["default"] = "pytest --tb=short -q"
+
+        return test_commands
 
     async def _check_git_status(self) -> dict:
         """

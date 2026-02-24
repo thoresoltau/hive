@@ -58,6 +58,11 @@ class ProductOwnerAgent(BaseAgent):
             user_message=f"""
             Refine this ticket as Product Owner.
 
+            IMPORTANT: If this ticket fundamentally changes the project structure or introduces
+            important documentation files that other agents should know about, use the
+            `update_context` tool to add them to the global memory (e.g. updating the
+            `important_files` or `architecture_notes` fields).
+
             Create:
             1. Clear, testable Acceptance Criteria (at least 3)
             2. A User Story in the format "As a X I want to Y, so that Z"
@@ -78,11 +83,26 @@ class ProductOwnerAgent(BaseAgent):
                     "i_want": "desired functionality",
                     "so_that": "Benefit/Value"
                 }},
-                "refinement_notes": "Additional notes for the team"
+                "refinement_notes": "Additional notes for the team",
+                "context_updates": {{
+                    "important_files": [],
+                    "architecture_notes": ""
+                }} // Optional: populate if you need to update global context
             }}
             """,
             ticket=ticket,
         )
+
+        # Update context if requested
+        context_updates = refinement.get("context_updates")
+        if context_updates and self.tools and "update_context" in self.tools:
+            try:
+                # Only pass non-empty values to avoid wiping out existing
+                updates_to_apply = {k: v for k, v in context_updates.items() if v}
+                if updates_to_apply:
+                    await self.tools["update_context"].execute(**updates_to_apply)
+            except Exception as e:
+                self.log.error(f"Failed to apply context updates: {e}")
 
         # Update ticket
         ticket.acceptance_criteria = refinement.get("acceptance_criteria", [])
@@ -182,23 +202,38 @@ class ProductOwnerAgent(BaseAgent):
         if not run_command:
             return "run_command tool not available."
 
-        try:
-            # Run pytest
-            result = await run_command.execute(
-                command="pytest -v --tb=short",
-                cwd=".",
-                timeout=120,
-            )
+        # Get configured or auto-detected test commands
+        test_commands = await self._get_test_commands()
 
-            if result.success:
-                output = str(result.output)[:2000]
-                return f"✅ Tests successful:\n{output}"
+        commands_to_run = list(test_commands.values())
+        if not commands_to_run:
+            return {"passed": False, "error": "No test commands found"}
+
+        try:
+            all_passed = True
+            outputs = []
+
+            for cmd in commands_to_run:
+                # Run detected test command
+                result = await run_command.execute(
+                    command=cmd,
+                    cwd=".",
+                    timeout=120,
+                )
+                out_str = result.output[:2000] if result.output else ""
+                outputs.append(f"--- Command: {cmd} ---\n{out_str}")
+
+                if not result.success:
+                    all_passed = False
+
+            full_output = "\n\n".join(outputs)
+
+            if all_passed:
+                return f"✅ All tests successful:\n{full_output}"
             else:
-                output = str(result.output)[:2000] if result.output else ""
-                error = result.error or ""
-                return f"⚠️ Tests:\n{output}\n{error}"
+                return f"⚠️ Some tests failed:\n{full_output}"
         except Exception as e:
-            return f"Error executing tests: {e}"
+            return f"❌ Error executing tests: {str(e)}"
 
     async def _validate_implementation(self, ticket_id: Optional[str]) -> AgentResponse:
         """Validate that implementation meets acceptance criteria."""
