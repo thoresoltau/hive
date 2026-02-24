@@ -38,6 +38,7 @@ class Complexity(str, Enum):
 
 
 class SubtaskStatus(str, Enum):
+    BACKLOG = "backlog"
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     DONE = "done"
@@ -107,25 +108,25 @@ class Ticket(BaseModel):
     title: str
     priority: Priority = Priority.MEDIUM
     status: TicketStatus = TicketStatus.BACKLOG
-    
+
     # Core content
     description: str
     acceptance_criteria: list[str] = Field(default_factory=list)
     user_story: Optional[UserStory] = None
-    
+
     # Technical
     technical_context: TechnicalContext = Field(default_factory=TechnicalContext)
-    
+
     # Planning
     estimation: Estimation = Field(default_factory=Estimation)
     dependencies: TicketDependencies = Field(default_factory=TicketDependencies)
-    
+
     # Implementation tracking
     implementation: Implementation = Field(default_factory=Implementation)
-    
+
     # Communication
     comments: list[Comment] = Field(default_factory=list)
-    
+
     # Meta
     metadata: Metadata = Field(default_factory=Metadata)
 

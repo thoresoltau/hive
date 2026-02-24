@@ -62,6 +62,8 @@ class ProductOwnerAgent(BaseAgent):
             1. Clear, testable Acceptance Criteria (at least 3)
             2. A User Story in the format "As a X I want to Y, so that Z"
 
+            CRITICAL: Do NOT invent or hallucinate files (e.g. docs/architektur.md) in your refinement notes or context if they do not explicitly exist.
+
             {additional_context}
 
             Answer with JSON:

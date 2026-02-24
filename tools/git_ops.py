@@ -11,6 +11,7 @@ async def run_git_command(
     args: list[str],
     cwd: str,
     timeout: float = 30.0,
+    auto_init: bool = True,
 ) -> tuple[bool, str, str]:
     """
     Run a git command asynchronously.
@@ -32,7 +33,21 @@ async def run_git_command(
         )
 
         success = process.returncode == 0
-        return success, stdout.decode(), stderr.decode()
+        stdout_str = stdout.decode()
+        stderr_str = stderr.decode()
+
+        # Auto-initialize git if needed and retry once
+        if not success and auto_init and "not a git repository" in stderr_str.lower():
+            init_process = await asyncio.create_subprocess_exec(
+                "git", "init",
+                cwd=cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await init_process.communicate()
+            return await run_git_command(args, cwd, timeout, auto_init=False)
+
+        return success, stdout_str, stderr_str
 
     except asyncio.TimeoutError:
         return False, "", "Git command timed out"

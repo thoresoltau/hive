@@ -81,7 +81,7 @@ class ArchitectAgent(BaseAgent):
             Create:
             1. List of affected areas
             2. Required Dependencies
-            3. Relevant existing files with Reasoning
+            3. Relevant existing files with Reasoning (CRITICAL: Only include files that ACTUALLY EXIST in the codebase structure provided above. DO NOT invent or hallucinate files like 'docs/architektur.md' if they are not listed.)
             4. Implementation hints
             5. Subtasks for developers
             6. Complexity estimation

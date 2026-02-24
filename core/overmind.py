@@ -150,13 +150,13 @@ class Overmind:
 
             kwargs = {
                 "name": agent_key,
-                "hatchery": self.hatchery,
-                "link": self.link,
+                "backlog": self.hatchery,
+                "message_bus": self.link,
                 "system_prompt": system_prompt,
                 "model": config.get("model", "${MODEL_NAME}") \
                     .replace("${MODEL_NAME}", self.genetics.config.model_name) \
                     .replace("${MODEL_FAST}", self.genetics.config.model_name_fast),
-                "temperature": config.get("temperature", 0.3),
+                "temperature": config.get("temperature", 1),
             }
 
             # All agents get file tools for documentation, tickets, etc.

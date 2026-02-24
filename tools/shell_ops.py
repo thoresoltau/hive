@@ -25,6 +25,7 @@ ALLOWED_COMMANDS = {
     # General utilities
     "cat", "head", "tail", "grep", "find", "ls", "echo", "pwd", "wc",
     "sort", "uniq", "diff", "tree", "which", "env", "sleep", "python3",
+    "mkdir", "touch", "rm", "cp", "mv",
 }
 
 # Blacklist of dangerous commands/patterns
